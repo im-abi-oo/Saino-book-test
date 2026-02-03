@@ -3,103 +3,141 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Manga Apex Zenith | Ultimate Fix v19.2</title>
+  <title>Manga Apex Zenith | Ultimate Final v19.3</title>
 
-  <!-- Tailwind CDN (demo) + Vazir + Lucide -->
+  <!-- Tailwind CDN (for quick styling) + Vazir font + Lucide icons -->
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css" rel="stylesheet"/>
   <script src="https://unpkg.com/lucide@latest"></script>
 
+  <!-- SVG filters for sharpen (unsharp-like) -->
+  <svg width="0" height="0" style="position:absolute;">
+    <defs>
+      <filter id="sharpen">
+        <!-- unsharp-ish via convolution -->
+        <feConvolveMatrix order="3" kernelMatrix="-1 -1 -1 -1 16 -1 -1 -1 -1" divisor="8" />
+      </filter>
+      <filter id="soft-contrast">
+        <feComponentTransfer>
+          <feFuncR type="gamma" amplitude="1" exponent="0.98" offset="0"/>
+          <feFuncG type="gamma" amplitude="1" exponent="0.98" offset="0"/>
+          <feFuncB type="gamma" amplitude="1" exponent="0.98" offset="0"/>
+        </feComponentTransfer>
+      </filter>
+    </defs>
+  </svg>
+
   <style>
     :root{
       --primary-a: #00f2ff;
-      --primary-b: #7c5cff;
-      --primary-grad: linear-gradient(90deg,var(--primary-a),var(--primary-b));
-      --bg-deep: #050507;
-      --panel: rgba(12,12,18,0.82);
+      --primary-b: #8b5cff;
+      --bg-1: #04040a;
+      --bg-2: #070710;
+      --panel: rgba(14,14,20,0.82);
       --border: rgba(255,255,255,0.06);
       --manga-w: 900px;
+      --image-overlay-alpha: 0.03; /* transparent overlay on images to discourage drag/drop */
     }
 
-    /* base */
-    html,body{height:100%;margin:0;background:linear-gradient(180deg,#04040a 0%, #06060b 60%);color:#fff;font-family:'Vazirmatn',sans-serif}
+    html,body{height:100%;margin:0;background:linear-gradient(180deg,var(--bg-1) 0%, var(--bg-2) 80%);color:#fff;font-family:'Vazirmatn',sans-serif;direction:rtl}
     *{box-sizing:border-box}
     body{user-select:none}
     input,textarea,button,select{user-select:text}
-    [tabindex]:focus{outline:3px solid rgba(124,92,255,0.14);outline-offset:3px;border-radius:8px}
+    [tabindex]:focus{outline:3px solid rgba(139,92,255,0.12);outline-offset:3px;border-radius:8px}
 
-    /* viewport */
+    /* main viewport */
     #main-viewport{width:100vw;height:100vh;overflow-y:auto;overflow-x:hidden;position:relative;scroll-behavior:smooth}
     #main-viewport.book-mode{display:flex;overflow-y:hidden;overflow-x:auto;scroll-snap-type:x mandatory}
     .manga-render{display:flex;flex-direction:column;align-items:center;width:100%;transition:filter .25s,transform .25s}
     .book-mode .manga-render{flex-direction:row;height:100vh;width:max-content}
-    .page-frame{width:100%;max-width:var(--manga-w);display:flex;justify-content:center;flex-shrink:0;margin:0 auto;padding:12px}
-    .book-mode .page-frame{height:100vh;width:var(--manga-w);scroll-snap-align:center;display:flex;align-items:center;justify-content:center}
-    .manga-img{width:100%;height:auto;display:block;opacity:0;transition:opacity .35s ease,transform .25s ease}
-    .book-mode .manga-img{height:calc(100% - 24px);width:auto;max-width:100%;object-fit:contain}
 
-    /* quality helpers */
+    /* frame & images */
+    .page-frame{width:100%;max-width:var(--manga-w);display:flex;justify-content:center;flex-shrink:0;margin:0 auto;padding:12px}
+    .book-mode .page-frame{height:100vh;width:var(--manga-w);scroll-snap-align:center;display:flex;align-items:center;justify-content:center;padding:12px}
+    .manga-img{width:100%;height:auto;display:block;opacity:0;transition:opacity .35s ease, transform .24s ease;will-change:transform,opacity}
+    .book-mode .manga-img{height:calc(100% - 24px);width:auto;max-width:100%;object-fit:contain}
+    /* when double page, images inside a frame shrink to half */
+    .double .manga-img{width:calc(50% - 8px);height:calc(100% - 24px);max-height:100%}
+
+    /* overlay on images to reduce direct saving */
+    .img-wrap{position:relative;display:flex;align-items:center;justify-content:center}
+    .img-wrap::after{
+      content:'';position:absolute;inset:0;background:linear-gradient(90deg, rgba(255,255,255,var(--image-overlay-alpha)), rgba(0,0,0,var(--image-overlay-alpha)));pointer-events:none;
+    }
+
+    /* quality helper classes */
     .q-std{image-rendering:auto;filter:none}
-    .q-hd{filter:contrast(1.06) brightness(1.02) saturate(1.04)}
+    .q-hd{filter:contrast(1.06) brightness(1.02) saturate(1.05)}
     .q-uhd{filter:contrast(1.12) saturate(1.08) brightness(1.02)}
+    .q-sharp{filter:url(#sharpen)}
+    .q-soft{filter:url(#soft-contrast)}
 
     /* glass UI */
-    .glass{background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--border);box-shadow:0 6px 30px rgba(0,0,0,0.6)}
-    .sidebar{position:fixed;top:0;bottom:0;right:0;width:360px;z-index:200;transform:translateX(110%);transition:transform .35s cubic-bezier(.2,1,.2,1)}
+    .glass{background:var(--panel);backdrop-filter:blur(14px);border:1px solid var(--border);box-shadow:0 8px 40px rgba(0,0,0,0.6)}
+    .sidebar{position:fixed;top:0;bottom:0;right:0;width:380px;z-index:300;transform:translateX(110%);transition:transform .32s cubic-bezier(.2,1,.2,1)}
     .sidebar.active{transform:translateX(0)}
-    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);z-index:150;opacity:0;pointer-events:none;transition:opacity .28s}
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);z-index:250;opacity:0;pointer-events:none;transition:opacity .28s}
     .overlay.active{opacity:1;pointer-events:auto}
     .hud-hidden{opacity:0;pointer-events:none;transform:translateY(20px)}
-    .active-glow{background:var(--primary-a) !important;color:#000 !important;box-shadow:0 8px 40px rgba(0,242,255,0.12);border-color:transparent !important}
+    .active-glow{background:linear-gradient(90deg,var(--primary-a),var(--primary-b)) !important;color:#000 !important;box-shadow:0 14px 50px rgba(124,92,255,0.12);border-color:transparent !important}
     .current-ch{background:linear-gradient(90deg, rgba(0,242,255,0.06), rgba(124,92,255,0.04));border-right:4px solid var(--primary-a)}
-    input[type=range]{-webkit-appearance:none;width:100%;height:8px;background:#141418;border-radius:999px;outline:none}
-    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;border:2px solid #fff;background:linear-gradient(180deg,var(--primary-a),var(--primary-b));cursor:pointer;box-shadow:0 6px 18px rgba(124,92,255,0.18)}
-    .hidden{display:none}
 
-    /* modern scrollbar (for webkit) */
+    /* modern scrollbar - webkit */
     #main-viewport::-webkit-scrollbar{width:10px;height:10px}
     #main-viewport::-webkit-scrollbar-track{background:transparent;border-radius:999px}
     #main-viewport::-webkit-scrollbar-thumb{
-      background: linear-gradient(180deg, rgba(124,92,255,0.9), rgba(0,242,255,0.9));
+      background: linear-gradient(180deg, rgba(124,92,255,0.95), rgba(0,242,255,0.95));
       border-radius:999px;border:2px solid rgba(0,0,0,0.25);
-      box-shadow: 0 2px 10px rgba(0,0,0,0.6), inset 0 0 8px rgba(255,255,255,0.02);
+      box-shadow: 0 4px 18px rgba(0,0,0,0.6), inset 0 0 8px rgba(255,255,255,0.02);
     }
-    /* firefox */
     #main-viewport{scrollbar-width:thin;scrollbar-color: rgba(124,92,255,0.9) transparent}
-
-    /* subtle hover friendly scrollbar: make thumb wider on hover */
     #main-viewport:hover::-webkit-scrollbar{width:12px}
-    #main-viewport:hover::-webkit-scrollbar-thumb{border-radius:999px}
 
-    /* small responsive */
-    @media (max-width:640px){ .sidebar{width:92%} .page-frame{padding:6px} }
+    /* controls & spacing */
+    .small-note{font-size:11px;color:#9CA3AF}
+    input[type=range]{-webkit-appearance:none;width:100%;height:8px;background:#141418;border-radius:999px;outline:none}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:16px;height:16px;border-radius:50%;border:2px solid #fff;background:linear-gradient(180deg,var(--primary-a),var(--primary-b));cursor:pointer;box-shadow:0 6px 18px rgba(124,92,255,0.18)}
 
-    @media (prefers-reduced-motion: reduce){ html{scroll-behavior:auto} *{transition:none!important} }
+    /* responsive */
+    @media (max-width:900px){
+      .sidebar{width:92%}
+      .page-frame{padding:8px}
+      .book-mode .page-frame{width:calc(100vw - 40px);max-width:none}
+      .double .manga-img{width:calc(50% - 6px)}
+    }
+
+    @media (prefers-reduced-motion: reduce){
+      html{scroll-behavior:auto}
+      *{transition:none!important}
+    }
   </style>
 </head>
 <body>
 
+  <!-- overlay -->
   <div id="ui-overlay" class="overlay" aria-hidden="true"></div>
 
-  <div class="fixed top-0 left-0 w-full h-1 z-[250]">
+  <!-- progress -->
+  <div class="fixed top-0 left-0 w-full h-1 z-[350]">
     <div id="progress" class="h-full bg-gradient-to-r from-cyan-400 to-violet-500 w-0 transition-all duration-300 shadow-[0_0_18px_rgba(124,92,255,0.12)]"></div>
   </div>
 
-  <header id="ui-top" class="fixed top-4 inset-x-0 z-50 px-6 transition-all duration-300" role="banner">
+  <!-- header -->
+  <header id="ui-top" class="fixed top-4 inset-x-0 z-400 px-6 transition-all duration-300" role="banner">
     <div class="max-w-6xl mx-auto flex items-center justify-between p-3 glass rounded-2xl shadow-xl">
       <div class="flex items-center gap-4">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500/10 to-violet-500/8 flex items-center justify-center text-cyan-300" aria-hidden="true">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-cyan-500/10 to-violet-500/8 flex items-center justify-center text-cyan-300">
           <i data-lucide="shield-check"></i>
         </div>
         <div>
           <h1 class="text-xs font-black uppercase">Solo Leveling</h1>
-          <p class="text-[9px] text-zinc-400 font-mono tracking-widest">APEX ENGINE v19.2</p>
+          <p class="text-[9px] text-zinc-400 font-mono tracking-widest">APEX ENGINE v19.3</p>
         </div>
       </div>
 
       <div class="flex items-center gap-3">
         <div class="text-[10px] font-mono bg-white/5 px-4 py-2 rounded-xl border border-white/5" aria-live="polite">
-          <span id="p-curr" class="text-cyan-400" aria-label="صف فعلی">01</span> / <span id="p-total">00</span>
+          <span id="p-curr" class="text-cyan-400">01</span> / <span id="p-total">00</span>
         </div>
         <button id="btn-chapters" aria-haspopup="true" aria-controls="side-chapters" aria-expanded="false" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10" title="لیست قسمت‌ها" tabindex="0">
           <i data-lucide="layout-grid"></i>
@@ -108,121 +146,162 @@
     </div>
   </header>
 
+  <!-- main viewer -->
   <main id="main-viewport" tabindex="0" role="main" aria-label="مرورگر مانگا">
     <div id="render-container" class="manga-render"></div>
   </main>
 
-  <footer id="ui-bottom" class="fixed bottom-8 inset-x-0 z-50 transition-all duration-300" role="contentinfo">
+  <!-- footer -->
+  <footer id="ui-bottom" class="fixed bottom-8 inset-x-0 z-400 transition-all duration-300" role="contentinfo">
     <div class="max-w-fit mx-auto flex items-center gap-3 p-2.5 glass rounded-full shadow-2xl">
-      <button id="prev-ch" class="w-12 h-12 flex items-center justify-center rounded-full text-zinc-400 hover:text-white transition-all" aria-label="فصل قبلی" tabindex="0"><i data-lucide="chevrons-left"></i></button>
+      <!-- previous chapter (left action = previous) -->
+      <button id="prev-ch" class="w-12 h-12 flex items-center justify-center rounded-full text-zinc-400 hover:text-white transition-all" aria-label="فصل قبلی" tabindex="0">
+        <i data-lucide="chevrons-left"></i>
+      </button>
+
       <div class="w-px h-6 bg-white/10"></div>
-      <button id="btn-settings" class="w-14 h-14 flex items-center justify-center rounded-full bg-gradient-to-b from-cyan-400 to-violet-500 text-black shadow-lg hover:scale-105 active:scale-95 transition-all" aria-haspopup="true" aria-controls="side-settings" aria-expanded="false" title="تنظیمات" tabindex="0"><i data-lucide="settings"></i></button>
-      <button id="btn-auto" class="w-12 h-12 flex items-center justify-center rounded-full text-zinc-400 hover:text-white transition-all" aria-pressed="false" aria-label="پخش خودکار" tabindex="0"><i data-lucide="play"></i></button>
-      <button id="btn-top" class="w-12 h-12 flex items-center justify-center rounded-full text-zinc-400 hover:text-white transition-all" aria-label="بازگشت به بالا" tabindex="0"><i data-lucide="arrow-up-to-line"></i></button>
+
+      <button id="btn-settings" class="w-14 h-14 flex items-center justify-center rounded-full bg-gradient-to-b from-cyan-400 to-violet-500 text-black shadow-lg hover:scale-105 active:scale-95 transition-all" aria-haspopup="true" aria-controls="side-settings" aria-expanded="false" title="تنظیمات" tabindex="0">
+        <i data-lucide="settings"></i>
+      </button>
+
+      <button id="btn-auto" class="w-12 h-12 flex items-center justify-center rounded-full text-zinc-400 hover:text-white transition-all" aria-pressed="false" aria-label="پخش خودکار" tabindex="0">
+        <i data-lucide="play"></i>
+      </button>
+
+      <button id="btn-top" class="w-12 h-12 flex items-center justify-center rounded-full text-zinc-400 hover:text-white transition-all" aria-label="بازگشت به بالا" tabindex="0">
+        <i data-lucide="arrow-up-to-line"></i>
+      </button>
+
       <div class="w-px h-6 bg-white/10"></div>
-      <button id="next-ch" class="w-12 h-12 flex items-center justify-center rounded-full text-zinc-400 hover:text-white transition-all" aria-label="فصل بعدی" tabindex="0"><i data-lucide="chevrons-right"></i></button>
+
+      <!-- next chapter (right action = next) -->
+      <button id="next-ch" class="w-12 h-12 flex items-center justify-center rounded-full text-zinc-400 hover:text-white transition-all" aria-label="فصل بعدی" tabindex="0">
+        <i data-lucide="chevrons-right"></i>
+      </button>
     </div>
   </footer>
 
+  <!-- chapters sidebar -->
   <aside id="side-chapters" class="sidebar glass" role="dialog" aria-hidden="true" aria-label="فهرست قسمت‌ها" tabindex="-1">
     <div class="p-6 h-full flex flex-col">
-      <div class="flex justify-between items-center mb-8">
+      <div class="flex justify-between items-center mb-6">
         <h2 class="text-sm font-black text-cyan-400 flex items-center gap-2"><i data-lucide="bookmark"></i> لیست قسمت‌ها</h2>
         <button id="close-ch" class="p-2 bg-white/5 rounded-lg text-zinc-500 hover:text-white transition-all" aria-label="بستن"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
-      <div class="relative mb-6">
+
+      <div class="relative mb-4">
         <input id="ch-search" type="text" placeholder="فیلتر آنی..." class="w-full bg-white/5 border border-white/5 rounded-xl py-3 pr-4 pl-10 text-xs outline-none focus:border-cyan-500/40 transition-all" aria-label="جستجوی قسمت‌ها"/>
         <i data-lucide="search" class="absolute left-3 top-3.5 w-4 h-4 text-zinc-600"></i>
       </div>
-      <div id="ch-list" class="flex-1 overflow-y-auto space-y-2 pl-2" tabindex="0"></div>
+
+      <div id="ch-list" class="flex-1 overflow-y-auto space-y-3 pr-2" tabindex="0"></div>
+
+      <div class="mt-4 text-xs small-note">برای انتخاب قسمت، Enter را فشار دهید یا روی مورد کلیک کنید.</div>
     </div>
   </aside>
 
+  <!-- settings sidebar -->
   <aside id="side-settings" class="sidebar glass" role="dialog" aria-hidden="true" aria-label="تنظیمات" tabindex="-1">
-    <div class="p-8 h-full flex flex-col overflow-y-auto">
-      <div class="flex justify-between items-center mb-10">
-        <h2 class="text-sm font-black uppercase tracking-widest">پیکربندی پیشرفته</h2>
+    <div class="p-6 h-full flex flex-col overflow-y-auto">
+      <div class="flex justify-between items-center mb-6">
+        <h2 class="text-sm font-black uppercase tracking-widest">پیکربندی</h2>
         <button id="close-settings" class="p-2 bg-white/5 rounded-lg text-zinc-500 hover:text-white transition-all" aria-label="بستن"><i data-lucide="x" class="w-4 h-4"></i></button>
       </div>
 
-      <div class="space-y-8">
-        <div class="space-y-3">
-          <label class="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">حالت نمایش (Layout)</label>
-          <div class="grid grid-cols-2 gap-2 p-1.5 bg-black/40 rounded-2xl">
-            <button id="m-web" data-mode="webtoon" class="py-3 rounded-xl text-[10px] font-black transition-all" tabindex="0">وبتون</button>
-            <button id="m-book" data-mode="book" class="py-3 rounded-xl text-[10px] font-black transition-all" tabindex="0">کتابی</button>
-          </div>
+      <div class="space-y-4">
+        <label class="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">حالت نمایش</label>
+        <div class="grid grid-cols-2 gap-2 p-1.5 bg-black/40 rounded-2xl">
+          <button id="m-web" data-mode="webtoon" class="py-3 rounded-xl text-[10px] font-black transition-all">وبتون</button>
+          <button id="m-book" data-mode="book" class="py-3 rounded-xl text-[10px] font-black transition-all">کتابی</button>
         </div>
-
-        <div class="space-y-3">
-          <div class="flex justify-between items-center">
-            <label class="text-[10px] text-zinc-500 font-bold uppercase">عرض تصویر</label>
-            <span id="v-width" class="text-xs text-cyan-400 font-mono">900px</span>
-          </div>
-          <input type="range" min="300" max="1400" id="width-slider" />
-          <p class="text-[11px] text-zinc-500 mt-1">توجه: این کنترل برای حالت کتابی نیز اندازهٔ قاب صفحه را تنظیم می‌کند.</p>
-        </div>
-
-        <div class="space-y-3">
-          <div class="flex justify-between items-center">
-            <label class="text-[10px] text-zinc-500 font-bold uppercase">سرعت پیمایش اتوماتیک</label>
-            <span id="v-speed" class="text-xs text-cyan-400 font-mono">15</span>
-          </div>
-          <input type="range" min="1" max="100" id="speed-slider" />
-        </div>
-
-        <div class="space-y-3">
-          <label class="text-[10px] text-zinc-500 font-bold uppercase">ارتقا کیفیت (Engine)</label>
-          <div class="flex p-1.5 bg-black/40 rounded-2xl">
-            <button class="q-btn flex-1 py-2.5 text-[9px] font-black rounded-xl" data-q="std" tabindex="0">Standard</button>
-            <button class="q-btn flex-1 py-2.5 text-[9px] font-black rounded-xl" data-q="hd" tabindex="0">HD Mode</button>
-            <button class="q-btn flex-1 py-2.5 text-[9px] font-black rounded-xl" data-q="uhd" tabindex="0">Ultra Sharp</button>
-          </div>
-        </div>
-
-        <div class="space-y-3">
-          <label class="text-[10px] text-zinc-500 font-bold uppercase">فیلترهای بصری (قابل تنظیم)</label>
-          <div id="filter-grid" class="grid grid-cols-2 gap-2 mb-2">
-            <button class="f-btn p-3 rounded-xl text-[9px] font-bold" data-f="none" tabindex="0">بدون فیلتر</button>
-            <button class="f-btn p-3 rounded-xl text-[9px] font-bold" data-f="eye" tabindex="0">محافظ چشم (گرم)</button>
-            <button class="f-btn p-3 rounded-xl text-[9px] font-bold" data-f="bw" tabindex="0">سیاه و سفید</button>
-            <button class="f-btn p-3 rounded-xl text-[9px] font-bold" data-f="ink" tabindex="0">تقویت خطوط (Ink)</button>
-          </div>
-          <div>
-            <div class="flex justify-between items-center text-[10px] text-zinc-500 font-bold">
-              <span>شدت فیلتر</span><span id="v-filter" class="text-xs text-cyan-400 font-mono">50</span>
-            </div>
-            <input type="range" min="0" max="100" id="filter-slider" />
-          </div>
-        </div>
-
       </div>
+
+      <div class="space-y-4">
+        <label class="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">عرض تصویر (px)</label>
+        <div class="flex items-center gap-3">
+          <input type="range" min="300" max="1400" id="width-slider" />
+          <div id="v-width" class="text-xs text-cyan-400 font-mono">900px</div>
+        </div>
+        <div class="text-xs small-note">در حالت کتابی، اندازهٔ واقعی تصویر را کنترل می‌کند.</div>
+      </div>
+
+      <div class="space-y-4">
+        <label class="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">سرعت پیمایش اتوماتیک</label>
+        <div class="flex items-center gap-3">
+          <input type="range" min="1" max="100" id="speed-slider" />
+          <div id="v-speed" class="text-xs text-cyan-400 font-mono">15</div>
+        </div>
+      </div>
+
+      <div class="space-y-4">
+        <label class="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">کیفیت تصویر</label>
+        <div class="flex gap-2 p-1.5 bg-black/40 rounded-2xl">
+          <button class="q-btn flex-1 py-2.5 text-[9px] font-black rounded-xl" data-q="std">Standard</button>
+          <button class="q-btn flex-1 py-2.5 text-[9px] font-black rounded-xl" data-q="hd">HD</button>
+          <button class="q-btn flex-1 py-2.5 text-[9px] font-black rounded-xl" data-q="uhd">Ultra</button>
+          <button class="q-btn flex-1 py-2.5 text-[9px] font-black rounded-xl" data-q="hi">HiRes</button>
+        </div>
+        <div class="text-xs small-note">کیفیت بالاتر باعث دانلود تصاویر با رزولوشن بیشتر می‌شود.</div>
+      </div>
+
+      <div class="space-y-3">
+        <label class="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">فیلترهای بصری</label>
+        <div id="filter-grid" class="grid grid-cols-2 gap-2 mb-2">
+          <button class="f-btn p-3 rounded-xl text-[9px] font-bold" data-f="none">بدون فیلتر</button>
+          <button class="f-btn p-3 rounded-xl text-[9px] font-bold" data-f="eye">محافظ چشم</button>
+          <button class="f-btn p-3 rounded-xl text-[9px] font-bold" data-f="bw">سیاه و سفید</button>
+          <button class="f-btn p-3 rounded-xl text-[9px] font-bold" data-f="ink">تقویت خطوط</button>
+          <button class="f-btn p-3 rounded-xl text-[9px] font-bold" data-f="soft">نرمی</button>
+        </div>
+        <div class="flex items-center gap-3">
+          <input type="range" min="0" max="100" id="filter-slider" />
+          <div id="v-filter" class="text-xs text-cyan-400 font-mono">50</div>
+        </div>
+      </div>
+
+      <div class="space-y-3">
+        <label class="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">حالت صفحه دوگانه (Double-page)</label>
+        <div class="flex items-center gap-3">
+          <button id="toggle-double" class="py-2 px-3 rounded-xl bg-white/5">روشن/خاموش</button>
+          <div class="text-xs small-note">در حالت کتابی، دو صفحه کنار هم نمایش داده می‌شوند.</div>
+        </div>
+      </div>
+
+      <div class="mt-6 text-xs small-note">برای حفاظت تصاویر: کلیک راست و میانبرهای رایج ذخیره‌سازی غیرفعال شده‌اند (محدودیت سمت کلاینت).</div>
     </div>
   </aside>
 
   <script>
   (function(){
 
-    /* ---------------------------
-       config & defaults
-    --------------------------- */
+    /* ---------- تنظیمات و state ---------- */
     const STORAGE_KEY = 'apex_zenith_v19_state';
-    const DEFAULT_STATE = { mode:'webtoon', width:900, speed:15, quality:'std', filter:'none', filterIntensity:50, currentChapter:1, auto:false };
+    const DEFAULT_STATE = {
+      mode: 'webtoon',        // webtoon | book
+      width: 900,             // px
+      speed: 20,              // 1..100 slider
+      quality: 'std',         // std | hd | uhd | hi
+      filter: 'none',         // none | eye | bw | ink | soft
+      filterIntensity: 50,    // 0..100
+      currentChapter: 1,
+      auto: false,
+      doublePage: false
+    };
     const TOTAL_CHAPTERS = 10;
     const IMAGES_PER_CHAPTER = 12;
-    const LAZY_ROOT_MARGIN = '800px';
-    const PAGE_VISIBLE_THRESHOLD = 0.6;
+    const LAZY_ROOT_MARGIN = '700px';
+    const PAGE_VISIBLE_THRESHOLD = 0.55;
 
-    /* storage */
+    /* load/save */
     const Storage = {
-      load(){ try{ const raw = localStorage.getItem(STORAGE_KEY); return raw?Object.assign({},DEFAULT_STATE,JSON.parse(raw)):Object.assign({},DEFAULT_STATE); }catch(e){ return Object.assign({},DEFAULT_STATE);} },
-      save(s){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); }catch(e){} }
+      load(){ try{ const raw = localStorage.getItem(STORAGE_KEY); return raw ? Object.assign({}, DEFAULT_STATE, JSON.parse(raw)) : Object.assign({}, DEFAULT_STATE); } catch(e){ return Object.assign({}, DEFAULT_STATE); } },
+      save(s){ try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(s)); } catch(e){} }
     };
 
-    /* state */
     const state = Storage.load();
 
-    /* refs */
+    /* DOM refs */
     const view = document.getElementById('main-viewport');
     const render = document.getElementById('render-container');
     const pTotalEl = document.getElementById('p-total');
@@ -232,8 +311,9 @@
     const sideCh = document.getElementById('side-chapters');
     const sideSettings = document.getElementById('side-settings');
 
-    /* observers */
-    let lazyObserver = null, pageObserver = null;
+    /* observers shared */
+    let lazyObserver = null;
+    let pageObserver = null;
 
     function createObservers(){
       lazyObserver = new IntersectionObserver((entries)=>{
@@ -241,9 +321,17 @@
           if(entry.isIntersecting){
             const img = entry.target;
             if(img.dataset && img.dataset.src){
-              img.src = img.dataset.src;
-              img.onload = ()=> img.style.opacity = '1';
-              img.onerror = ()=> { img.style.opacity='1'; img.alt='تصویر بارگذاری نشد'; img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900"><rect width="100%" height="100%" fill="#111"/><text x="50%" y="50%" fill="#999" font-size="20" text-anchor="middle">تصویر بارگذاری نشد</text></svg>`); };
+              // set high-res based on quality
+              const src = img.dataset.src;
+              img.src = src;
+              img.decode && img.decode().catch(()=>{}); // try decode for smoother paint
+              img.onload = () => { img.style.opacity = '1'; img.style.transform = 'translateY(0)'; };
+              img.onerror = () => {
+                img.alt = 'تصویر بارگذاری نشد';
+                img.style.opacity = '1';
+                img.style.transform = 'translateY(0)';
+                img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900"><rect width="100%" height="100%" fill="#111"/><text x="50%" y="50%" fill="#999" font-size="20" text-anchor="middle">تصویر بارگذاری نشد</text></svg>`);
+              };
             }
             lazyObserver.unobserve(img);
           }
@@ -254,30 +342,32 @@
         entries.forEach(entry=>{
           if(entry.intersectionRatio >= PAGE_VISIBLE_THRESHOLD){
             const idx = Array.prototype.indexOf.call(render.children, entry.target);
-            const pageIndex = Math.max(0, Math.min(IMAGES_PER_CHAPTER-1, idx));
-            updateCurrentPage(pageIndex+1);
+            // compute current "page index" for display; in double mode index semantics still single-image based
+            // we just show the index of the first image visible +1
+            updateCurrentPageForFrame(idx);
           }
         });
       }, { root: view, threshold: PAGE_VISIBLE_THRESHOLD });
     }
 
-    function disconnectObservers(){ if(lazyObserver){ lazyObserver.disconnect(); lazyObserver=null } if(pageObserver){ pageObserver.disconnect(); pageObserver=null } }
+    function disconnectObservers(){ if(lazyObserver){ lazyObserver.disconnect(); lazyObserver = null } if(pageObserver){ pageObserver.disconnect(); pageObserver = null } }
 
-    /* auto-scroll manager - improved mapping for speed */
-    let rafId = null;
+    /* map speed slider to pixels-per-frame (exponential mapping for better perceived control) */
     function pixelsPerFrameFromSpeed(speed){
-      // map [1..100] to [0.5 .. 25] px/frame exponentially for real responsiveness
-      const min = 0.5, max = 25;
-      const t = (Math.max(1, Math.min(100, speed)) - 1) / (100 - 1);
+      const min = 0.5, max = 40;
+      const t = (Math.max(1, Math.min(100, speed)) - 1) / 99;
       return min * Math.pow(max/min, t);
     }
+
+    /* auto-scroll manager */
+    let rafId = null;
     function startAuto(){
       if(rafId) return;
       if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
       function step(){
         if(!state.auto || state.mode !== 'webtoon'){ stopAuto(); return; }
         const delta = pixelsPerFrameFromSpeed(state.speed);
-        // guard: if at bottom, stop
+        // guard bottom
         if(view.scrollTop + view.clientHeight >= view.scrollHeight - 2){
           state.auto = false; Storage.save(state); stopAuto(); return;
         }
@@ -296,85 +386,212 @@
       lucide.createIcons();
     }
 
-    /* image list builder (demo) */
-    function buildImageSrcList(chapterIndex){
-      const base = 60 + chapterIndex*5;
-      return Array.from({length: IMAGES_PER_CHAPTER}, (_,i)=>`https://picsum.photos/id/${(base + i) * 3}/1200/1800`);
+    /* image src building depending on quality */
+    function makeImgSrc(id, q){
+      // deterministic but quality-aware sizes
+      // id is a numeric seed; return picsum url sized by q
+      const sizeMap = { 'std': '900/1350', 'hd': '1400/2100', 'uhd': '2000/3000', 'hi': '2600/3900' };
+      const size = sizeMap[q] || sizeMap['std'];
+      // use id to vary
+      const picId = (id % 1000) + 1;
+      return `https://picsum.photos/id/${picId}/${size}`;
     }
 
-    function clearRender(){ if(lazyObserver || pageObserver) disconnectObservers(); render.innerHTML=''; createObservers(); }
+    /* build list of images for a chapter (deterministic) */
+    function buildImageMetaList(chapterIndex){
+      // return an array of objects {id, src}
+      const base = 100 + chapterIndex * 7;
+      const arr = [];
+      for(let i=0;i<IMAGES_PER_CHAPTER;i++){
+        const id = base + i;
+        arr.push({ id, srcSeed: id });
+      }
+      return arr;
+    }
 
-    function createImageFrame(src, idx){
-      const frame = document.createElement('div'); frame.className='page-frame';
-      // apply width in both modes by CSS var
-      frame.style.maxWidth = 'var(--manga-w)';
-      const img = document.createElement('img'); img.className = 'manga-img q-' + state.quality; img.dataset.src = src; img.alt = `صفحه ${idx+1}`; img.setAttribute('draggable','false');
-      if(idx < 2){ img.src = src; img.onload = ()=> img.style.opacity='1'; img.onerror = ()=>{ img.dataset.failed='1'; img.style.opacity='1'; } }
-      else{ img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; lazyObserver && lazyObserver.observe(img); }
-      frame.appendChild(img);
+    /* preload helper (preload next/prev) */
+    function preloadImages(list, quality){
+      // preload up to 2 next images for smoother navigation
+      [0,1,2].forEach(i=>{
+        if(list[i]){
+          const img = new Image();
+          img.src = makeImgSrc(list[i].srcSeed, quality);
+        }
+      });
+    }
+
+    /* render logic */
+    function clearRender(){
+      if(lazyObserver || pageObserver) disconnectObservers();
+      render.innerHTML = '';
+      createObservers();
+    }
+
+    function createFrameForIndex(idx, metaList){
+      // If doublePage mode and book mode: group two images into one frame (pair)
+      const frame = document.createElement('div');
+      frame.className = 'page-frame';
+      if(state.mode === 'webtoon') frame.style.maxWidth = state.width + 'px';
+      else frame.style.maxWidth = state.width + 'px';
+
+      if(state.mode === 'book' && state.doublePage){
+        frame.classList.add('double');
+        // pick two meta entries: idx*2 and idx*2+1 (so number of frames approx ceil(len/2))
+        const leftMeta = metaList[idx*2] || null;
+        const rightMeta = metaList[idx*2 + 1] || null;
+        const wrap = document.createElement('div'); wrap.className = 'img-wrap'; wrap.style.display = 'flex'; wrap.style.gap = '12px'; wrap.style.width = '100%'; wrap.style.justifyContent = 'center';
+
+        [leftMeta, rightMeta].forEach((m, j)=>{
+          const img = document.createElement('img');
+          img.className = 'manga-img q-' + state.quality;
+          img.alt = m ? `صفحه ${idx*2 + j + 1}` : '';
+          img.setAttribute('draggable','false');
+          if(m){
+            img.dataset.src = makeImgSrc(m.srcSeed, state.quality);
+            // first visible frames should load immediately
+            if((idx*2 + j) < 2){
+              img.src = img.dataset.src;
+              img.onload = ()=> img.style.opacity = '1';
+              img.onerror = ()=> { img.style.opacity = '1'; };
+            } else {
+              img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+              lazyObserver && lazyObserver.observe(img);
+            }
+          } else {
+            img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900"><rect width="100%" height="100%" fill="#0a0a0a"/></svg>`);
+            img.style.opacity = '1';
+          }
+          img.style.transform = 'translateY(6px)';
+          wrap.appendChild(img);
+        });
+
+        frame.appendChild(wrap);
+      } else {
+        // single page per frame (webtoon or book single)
+        const meta = metaList[idx];
+        const wrap = document.createElement('div'); wrap.className = 'img-wrap'; wrap.style.width = '100%';
+        const img = document.createElement('img');
+        img.className = 'manga-img q-' + state.quality;
+        img.alt = meta ? `صفحه ${idx+1}` : '';
+        img.setAttribute('draggable','false');
+        if(meta){
+          img.dataset.src = makeImgSrc(meta.srcSeed, state.quality);
+          if(idx < 2){
+            img.src = img.dataset.src;
+            img.onload = ()=> img.style.opacity = '1';
+            img.onerror = ()=> img.style.opacity = '1';
+          } else {
+            img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+            lazyObserver && lazyObserver.observe(img);
+          }
+        } else {
+          img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900"><rect width="100%" height="100%" fill="#0a0a0a"/></svg>`);
+          img.style.opacity = '1';
+        }
+        img.style.transform = 'translateY(6px)';
+        wrap.appendChild(img);
+        frame.appendChild(wrap);
+      }
+
       pageObserver && pageObserver.observe(frame);
       return frame;
     }
 
     function loadPages(){
       clearRender();
-      const imgs = buildImageSrcList(state.currentChapter);
-      imgs.forEach((s,i)=> render.appendChild(createImageFrame(s,i)));
-      pTotalEl.innerText = String(imgs.length).padStart(2,'0');
-      updateCurrentPage(1);
-      applyFilterToRender(); // ensure filter applied
-      // set CSS var for manga width
-      document.documentElement.style.setProperty('--manga-w', state.mode === 'book' ? state.width + 'px' : state.width + 'px');
+      const meta = buildImageMetaList(state.currentChapter);
+      // compute number of frames: if double page & book => frames = ceil(n/2), else frames = n
+      const framesCount = (state.mode === 'book' && state.doublePage) ? Math.ceil(meta.length / 2) : meta.length;
+      for(let i=0;i<framesCount;i++){
+        render.appendChild(createFrameForIndex(i, meta));
+      }
+      pTotalEl.innerText = String(meta.length).padStart(2, '0');
+      updateCurrentPageForFrame(0); // initial
+      // preload first few
+      preloadImages(meta.slice(0,6), state.quality);
     }
 
-    /* chapters UI */
+    /* chapters list */
     function loadChapters(){
-      const list = document.getElementById('ch-list'); list.innerHTML='';
+      const list = document.getElementById('ch-list'); list.innerHTML = '';
       for(let i=1;i<=TOTAL_CHAPTERS;i++){
-        const item = document.createElement('div'); const isCurr = (i === state.currentChapter);
-        item.className = `p-4 rounded-xl cursor-pointer flex justify-between items-center transition-all ${isCurr ? 'current-ch' : 'hover:bg-white/8 bg-white/5'}`;
+        const item = document.createElement('div');
+        const isCurr = (i === state.currentChapter);
+        item.className = `p-4 rounded-xl cursor-pointer flex justify-between items-center transition-all ${isCurr ? 'current-ch' : 'hover:bg-white/6 bg-white/5'}`;
         item.setAttribute('role','button'); item.setAttribute('tabindex','0');
         item.innerHTML = `<div class="flex flex-col"><span class="text-xs font-black ${isCurr ? 'text-cyan-400' : 'text-zinc-300'}">قسمت ${i}</span><span class="text-[9px] text-zinc-600">انتشار در ۲۴ ساعت گذشته</span></div>${isCurr ? '<i data-lucide="eye" class="w-4 h-4 text-cyan-400"></i>' : '<i data-lucide="lock" class="w-3 h-3 text-zinc-800"></i>'}`;
         item.addEventListener('click', ()=> { state.currentChapter = i; Storage.save(state); loadChapters(); closeAll(); loadPages(); view.scrollTo({top:0,left:0,behavior:'auto'}); });
-        item.addEventListener('keydown', (e)=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); item.click(); }});
+        item.addEventListener('keydown', (e)=>{ if(e.key === 'Enter' || e.key === ' ') { e.preventDefault(); item.click(); }});
         list.appendChild(item);
       }
       lucide.createIcons();
     }
 
-    /* apply filter engine (improved) */
+    /* update shown current page number based on frame index (frame->page mapping) */
+    function updateCurrentPageForFrame(frameIndex){
+      // if double+book: page = frameIndex*2 + 1 else page = frameIndex + 1
+      let pageNum;
+      if(state.mode === 'book' && state.doublePage){
+        pageNum = frameIndex * 2 + 1;
+        // clamp
+        pageNum = Math.min(pageNum, IMAGES_PER_CHAPTER);
+      } else {
+        pageNum = frameIndex + 1;
+      }
+      pCurrEl.innerText = String(pageNum).padStart(2, '0');
+      // update progressbar based on scroll
+      try{
+        const isWeb = state.mode === 'webtoon';
+        const s = isWeb ? view.scrollTop : view.scrollLeft;
+        const m = isWeb ? Math.max(1, view.scrollHeight - view.clientHeight) : Math.max(1, view.scrollWidth - view.clientWidth);
+        const percent = Math.min(100, Math.max(0, (s/m*100)));
+        progressEl.style.width = percent + '%';
+      }catch(e){}
+    }
+
+    /* apply filters based on settings */
     function applyFilterToRender(){
-      // presets: none, eye(warm), bw, ink
       const intensity = Math.max(0, Math.min(100, state.filterIntensity)) / 100;
-      let filter = 'none';
+      let css = 'none';
       switch(state.filter){
         case 'eye':
-          // warm slightly, reduce blue, slight blur reduce? keep gentle
-          const warmth = 0.08 + 0.6 * intensity; // 0..0.68
-          const sat = 1 - 0.25 * intensity;
-          filter = `sepia(${warmth}) saturate(${sat}) contrast(${1 - 0.05*intensity})`;
+          const warmth = 0.06 + 0.6 * intensity;
+          const sat = 1 - 0.2 * intensity;
+          css = `sepia(${warmth}) saturate(${sat}) contrast(${1 - 0.04*intensity})`;
           break;
         case 'bw':
-          filter = `grayscale(${0.9*intensity}) contrast(${1 + 0.15*intensity})`;
+          css = `grayscale(${0.9*intensity}) contrast(${1 + 0.18*intensity})`;
           break;
         case 'ink':
-          // boost contrast & clarity (simulate ink enhancement)
-          filter = `contrast(${1 + 0.5*intensity}) saturate(${1 + 0.1*intensity}) brightness(${1 - 0.05*intensity})`;
+          css = `contrast(${1 + 0.6*intensity}) saturate(${1 + 0.08*intensity}) brightness(${1 - 0.05*intensity})`;
+          break;
+        case 'soft':
+          css = `blur(${0.35*intensity}px) contrast(${1 - 0.08*intensity})`;
           break;
         default:
-          filter = 'none';
+          css = 'none';
       }
-      render.style.filter = filter;
+      render.style.filter = css;
     }
 
-    /* UI helpers */
-    function updateCurrentPage(n){
-      pCurrEl.innerText = String(n).padStart(2,'0');
+    /* apply quality classes and sizing */
+    function applyQualityAndSizing(){
+      // set --manga-w
+      document.documentElement.style.setProperty('--manga-w', state.width + 'px');
+      // apply classes
+      document.querySelectorAll('.manga-img').forEach(img=>{
+        img.classList.remove('q-std','q-hd','q-uhd','q-sharp','q-soft');
+        if(state.quality === 'std') img.classList.add('q-std');
+        if(state.quality === 'hd') img.classList.add('q-hd');
+        if(state.quality === 'uhd') { img.classList.add('q-uhd'); img.classList.add('q-sharp'); }
+        if(state.quality === 'hi') { img.classList.add('q-uhd'); img.classList.add('q-sharp'); img.classList.add('q-soft'); }
+      });
     }
 
-    function applySettingsToUI(applyImages=true){
-      document.getElementById('m-web').classList.toggle('active-glow', state.mode==='webtoon');
-      document.getElementById('m-book').classList.toggle('active-glow', state.mode==='book');
+    /* apply UI highlights & values */
+    function applySettingsToUI(){
+      document.getElementById('m-web').classList.toggle('active-glow', state.mode === 'webtoon');
+      document.getElementById('m-book').classList.toggle('active-glow', state.mode === 'book');
       document.getElementById('v-width').innerText = state.width + 'px';
       document.getElementById('width-slider').value = state.width;
       document.getElementById('v-speed').innerText = state.speed;
@@ -383,17 +600,31 @@
       document.querySelectorAll('.f-btn').forEach(btn=> btn.classList.toggle('active-glow', btn.dataset.f === state.filter));
       document.getElementById('filter-slider').value = state.filterIntensity;
       document.getElementById('v-filter').innerText = state.filterIntensity;
-      // apply quality class
-      if(applyImages) document.querySelectorAll('.manga-img').forEach(img=>{ img.classList.remove('q-std','q-hd','q-uhd'); img.classList.add('q-'+state.quality); });
-      // width var (apply for both modes)
-      document.documentElement.style.setProperty('--manga-w', state.width + 'px');
-      // auto control state
-      if(state.auto) startAuto(); else stopAuto();
-      // ensure filter applied
+      document.getElementById('toggle-double').classList.toggle('active-glow', state.doublePage);
       applyFilterToRender();
+      applyQualityAndSizing();
     }
 
-    /* event bindings */
+    /* navigation: chapter prev/next (real chapter navigation, not page scroll) */
+    function gotoChapter(direction){
+      if(direction === 'prev') state.currentChapter = Math.max(1, state.currentChapter - 1);
+      else if(direction === 'next') state.currentChapter = Math.min(TOTAL_CHAPTERS, state.currentChapter + 1);
+      Storage.save(state);
+      loadChapters();
+      loadPages();
+      view.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+    }
+
+    /* double toggle */
+    function toggleDouble(){
+      state.doublePage = !state.doublePage;
+      Storage.save(state);
+      // reload pages so frames regroup
+      loadPages();
+      applySettingsToUI();
+    }
+
+    /* UI bindings */
     function bindUI(){
       lucide.createIcons();
 
@@ -415,29 +646,71 @@
       document.getElementById('m-book').addEventListener('click', ()=> setMode('book'));
 
       document.getElementById('width-slider').addEventListener('input', e=>{
-        state.width = Number(e.target.value); document.getElementById('v-width').innerText = state.width+'px'; document.documentElement.style.setProperty('--manga-w', state.width + 'px'); Storage.save(state);
-        // adjust frames in both modes
-        document.querySelectorAll('.page-frame').forEach(f=> f.style.width = 'var(--manga-w)');
+        state.width = Number(e.target.value);
+        document.getElementById('v-width').innerText = state.width + 'px';
+        document.documentElement.style.setProperty('--manga-w', state.width + 'px');
+        Storage.save(state);
+        // apply immediately
+        applyQualityAndSizing();
+        // in book mode frames rely on var --manga-w, no reload needed; but double grouping might require reload for layout
+        if(state.mode === 'book') loadPages();
       });
 
-      document.getElementById('speed-slider').addEventListener('input', e=>{ state.speed = Number(e.target.value); document.getElementById('v-speed').innerText = state.speed; Storage.save(state); });
+      document.getElementById('speed-slider').addEventListener('input', e=>{
+        state.speed = Number(e.target.value);
+        document.getElementById('v-speed').innerText = state.speed;
+        Storage.save(state);
+      });
 
-      document.querySelectorAll('.q-btn').forEach(btn=> btn.addEventListener('click', ()=>{ state.quality = btn.dataset.q; Storage.save(state); applySettingsToUI(true); }));
+      document.querySelectorAll('.q-btn').forEach(btn=> btn.addEventListener('click', ()=>{
+        state.quality = btn.dataset.q; Storage.save(state);
+        // update srcs for next loads (rebuild pages)
+        loadPages(); applySettingsToUI();
+      }));
 
-      document.querySelectorAll('.f-btn').forEach(btn=> btn.addEventListener('click', ()=>{ state.filter = btn.dataset.f; Storage.save(state); applySettingsToUI(false); }));
+      document.querySelectorAll('.f-btn').forEach(btn=> btn.addEventListener('click', ()=>{
+        state.filter = btn.dataset.f; Storage.save(state); applySettingsToUI();
+      }));
 
-      document.getElementById('filter-slider').addEventListener('input', e=>{ state.filterIntensity = Number(e.target.value); document.getElementById('v-filter').innerText = state.filterIntensity; Storage.save(state); applyFilterToRender(); });
+      document.getElementById('filter-slider').addEventListener('input', e=>{
+        state.filterIntensity = Number(e.target.value);
+        document.getElementById('v-filter').innerText = state.filterIntensity;
+        Storage.save(state); applyFilterToRender();
+      });
+
+      document.getElementById('toggle-double').addEventListener('click', toggleDouble);
 
       // search
       let searchT = 0;
       const searchInput = document.getElementById('ch-search');
-      searchInput.addEventListener('input', (e)=>{ clearTimeout(searchT); const v = e.target.value.trim(); searchT = setTimeout(()=>{ document.querySelectorAll('#ch-list > div').forEach(el=> el.style.display = el.innerText.includes(v) ? 'flex' : 'none'); }, 150); });
+      searchInput.addEventListener('input', (e)=>{ clearTimeout(searchT); const v = e.target.value.trim(); searchT = setTimeout(()=>{ document.querySelectorAll('#ch-list > div').forEach(el=> el.style.display = el.innerText.includes(v) ? 'flex' : 'none'); }, 120); });
 
-      // HUD show/hide click
-      document.body.addEventListener('click', (ev)=>{ if(ev.target.closest('.glass') || ev.target.closest('.sidebar') || ev.target.closest('.overlay')) return; const top = document.getElementById('ui-top'); const bot = document.getElementById('ui-bottom'); const hidden = top.classList.contains('hud-hidden'); top.classList.toggle('hud-hidden', !hidden); bot.classList.toggle('hud-hidden', !hidden); });
+      // HUD hide / show
+      document.body.addEventListener('click', (ev)=>{
+        if(ev.target.closest('.glass') || ev.target.closest('.sidebar') || ev.target.closest('.overlay')) return;
+        const top = document.getElementById('ui-top');
+        const bot = document.getElementById('ui-bottom');
+        const hidden = top.classList.contains('hud-hidden');
+        top.classList.toggle('hud-hidden', !hidden);
+        bot.classList.toggle('hud-hidden', !hidden);
+      });
 
-      // keyboard shortcuts
-      document.addEventListener('keydown', (e)=>{ if(e.key === 'ArrowLeft') gotoChapter('prev'); if(e.key === 'ArrowRight') gotoChapter('next'); if(e.key === ' ') { e.preventDefault(); state.auto = !state.auto; Storage.save(state); if(state.auto) startAuto(); else stopAuto(); } if(e.key === 'Escape') closeAll(); });
+      // keyboard shortcuts (chapter nav fixed to arrows)
+      document.addEventListener('keydown', (e)=>{
+        if(e.key === 'ArrowLeft'){ // left -> previous chapter (فارسی)
+          e.preventDefault(); gotoChapter('prev');
+        } else if(e.key === 'ArrowRight'){ // right -> next chapter
+          e.preventDefault(); gotoChapter('next');
+        } else if(e.key === ' '){
+          e.preventDefault();
+          state.auto = !state.auto; Storage.save(state); if(state.auto) startAuto(); else stopAuto();
+        } else if(e.key === 'Escape'){
+          closeAll();
+        }
+        // block common save/view-source dev shortcuts to make scraping harder (client-side only)
+        if((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 's' || e.key.toLowerCase() === 'u')){ e.preventDefault(); }
+        if(e.key === 'F12' || ((e.ctrlKey||e.metaKey) && e.shiftKey && e.key.toLowerCase() === 'i')){ e.preventDefault(); }
+      });
 
       // scroll progress
       view.addEventListener('scroll', ()=>{
@@ -448,25 +721,62 @@
         progressEl.style.width = percent + '%';
       });
 
+      // overlay close
       overlay.addEventListener('click', closeAll);
+
+      // mobile swipe in book mode: detect horizontal swipe to snap to next frame
+      let touchStartX = null, touchStartY = null;
+      view.addEventListener('touchstart', (e)=>{
+        if(e.touches && e.touches.length === 1){
+          touchStartX = e.touches[0].clientX;
+          touchStartY = e.touches[0].clientY;
+        } else { touchStartX = null; }
+      }, {passive: true});
+      view.addEventListener('touchend', (e)=>{
+        if(touchStartX === null) return;
+        const touch = (e.changedTouches && e.changedTouches[0]) || null;
+        if(!touch) return;
+        const dx = touch.clientX - touchStartX;
+        const dy = touch.clientY - touchStartY;
+        if(Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 40 && state.mode === 'book'){
+          // swipe left or right: in RTL left-swipe means next frame to the left visually, but we'll map: swipe left -> next chapter/page
+          if(dx < 0){ // swipe left -> next
+            // if at last frame, go to next chapter
+            gotoFrameOrChapter('next');
+          } else { // swipe right -> prev
+            gotoFrameOrChapter('prev');
+          }
+        }
+      }, {passive: true});
     }
 
-    /* navigation helpers */
-    function gotoChapter(dir){
-      if(dir === 'prev') state.currentChapter = Math.max(1, state.currentChapter - 1);
-      else if(dir === 'next') state.currentChapter = Math.min(TOTAL_CHAPTERS, state.currentChapter + 1);
-      Storage.save(state); loadChapters(); loadPages(); view.scrollTo({top:0,left:0,behavior:'auto'});
+    /* navigation within frames (book-mode) or chapters */
+    function gotoFrameOrChapter(dir){
+      if(state.mode !== 'book') { // fallback to chapter navigation
+        gotoChapter(dir === 'prev' ? 'prev' : 'next');
+        return;
+      }
+      // find current frame index by checking which frame is mostly visible
+      const frames = Array.from(render.children);
+      let currentFrame = 0;
+      frames.forEach((f,i)=>{
+        const r = f.getBoundingClientRect();
+        const mid = window.innerWidth / 2;
+        if(r.left < mid && r.right > mid) currentFrame = i;
+      });
+      if(dir === 'next'){
+        const nextIdx = Math.min(frames.length - 1, currentFrame + 1);
+        frames[nextIdx].scrollIntoView({behavior:'smooth', inline: 'center'});
+        // if already at last frame -> next chapter
+        if(currentFrame === frames.length - 1) gotoChapter('next');
+      } else {
+        const prevIdx = Math.max(0, currentFrame - 1);
+        frames[prevIdx].scrollIntoView({behavior:'smooth', inline: 'center'});
+        if(currentFrame === 0) gotoChapter('prev');
+      }
     }
 
-    function setMode(m){
-      state.mode = m; Storage.save(state);
-      view.classList.toggle('book-mode', m === 'book');
-      // both modes honor --manga-w; for book mode we use that width for page-frame
-      document.documentElement.style.setProperty('--manga-w', state.width + 'px');
-      loadPages();
-      applySettingsToUI(true);
-    }
-
+    /* toggle sidebars */
     function toggleSide(id){
       closeAll();
       if(id === 'chapters'){ sideCh.classList.add('active'); sideCh.setAttribute('aria-hidden','false'); overlay.classList.add('active'); }
@@ -474,18 +784,43 @@
     }
     function closeAll(){ document.querySelectorAll('.sidebar').forEach(s=>{ s.classList.remove('active'); s.setAttribute('aria-hidden','true'); }); overlay.classList.remove('active'); }
 
-    /* lifecycle */
+    /* set mode */
+    function setMode(m){
+      state.mode = m; Storage.save(state);
+      view.classList.toggle('book-mode', m === 'book');
+      document.documentElement.style.setProperty('--manga-w', state.width + 'px');
+      loadPages();
+      applySettingsToUI();
+    }
+
+    /* load initial */
     function init(){
-      createObservers(); bindUI(); loadChapters(); loadPages(); applySettingsToUI(true);
+      // protect context menu & common right-click actions (user requested)
+      document.addEventListener('contextmenu', (e)=> { e.preventDefault(); }, {capture:true});
+      // also block dragstart on images (prevent drag)
+      document.addEventListener('dragstart', (e)=> { e.preventDefault(); }, {capture:true});
+      // block PrintScreen is not reliably possible via JS; we avoid suggesting that.
+
+      createObservers();
+      bindUI();
+      loadChapters();
+      loadPages();
+      applySettingsToUI();
       view.classList.toggle('book-mode', state.mode === 'book');
       document.documentElement.style.setProperty('--manga-w', state.width + 'px');
       lucide.createIcons();
       if(state.auto) startAuto();
+      // expose debug state
+      window._APEX = { getState: ()=> Object.assign({}, state) };
     }
 
+    /* lifecycle guards */
     window.addEventListener('load', init);
-    window.addEventListener('beforeunload', ()=>{ disconnectObservers(); Storage.save(state); });
-    window._APEX = { getState: ()=> Object.assign({}, state) };
+    window.addEventListener('beforeunload', ()=> { disconnectObservers(); Storage.save(state); });
+
+    /* Expose a few functions for internal use if needed */
+    window._APEX.gotoChapter = gotoChapter;
+    window._APEX.toggleDouble = toggleDouble;
 
   })();
   </script>

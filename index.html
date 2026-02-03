@@ -3,420 +3,406 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Manga Ultra Pro | Apex Engine v11.0</title>
+    <title>مانگا اپکس زنیت | نسخه ۱۶.۰</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css" rel="stylesheet"/>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
         :root {
-            --accent: #d946ef;
-            --accent-glow: rgba(217, 70, 239, 0.4);
-            --bg-base: #040405;
-            --panel-bg: rgba(10, 10, 14, 0.98);
-            --manga-width: 900px;
+            --primary: #00f2ff;
+            --primary-glow: rgba(0, 242, 255, 0.4);
+            --secondary: #7000ff;
+            --bg-deep: #050508;
+            --panel: rgba(13, 13, 20, 0.95);
+            --border: rgba(255, 255, 255, 0.08);
+        }
+
+        * {
+            scrollbar-width: thin;
+            scrollbar-color: var(--primary) transparent;
+            -webkit-tap-highlight-color: transparent;
         }
 
         body {
             font-family: 'Vazirmatn', sans-serif;
-            background-color: var(--bg-base);
-            color: #f4f4f5;
+            background-color: var(--bg-deep);
+            color: #fff;
             margin: 0;
             overflow: hidden;
-            user-select: none;
-            -webkit-user-select: none;
+            background-attachment: fixed;
         }
 
-        /* Modern Scrollbars */
-        .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
-        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
-        .custom-scroll::-webkit-scrollbar-thumb { 
-            background: rgba(255, 255, 255, 0.1); 
-            border-radius: 10px; 
-        }
-        .custom-scroll::-webkit-scrollbar-thumb:hover { background: var(--accent); }
-
-        /* Core Structure */
-        #reader-container {
+        /* موتور رندرینگ صفحات */
+        #viewport {
             width: 100vw;
             height: 100vh;
-            overflow-y: auto;
+            overflow-y: scroll;
             overflow-x: hidden;
             scroll-behavior: smooth;
-            background: #000;
         }
 
-        #reader-core {
+        .manga-container {
             display: flex;
             flex-direction: column;
             align-items: center;
-            margin: 0 auto;
-            width: 100%;
-            max-width: var(--manga-width);
-            transition: max-width 0.4s ease;
-        }
-
-        .mode-horizontal #reader-container {
-            display: flex;
-            overflow-x: auto;
-            overflow-y: hidden;
-            scroll-snap-type: x mandatory;
-            direction: ltr;
-        }
-
-        .mode-horizontal #reader-core {
-            flex-direction: row-reverse;
-            max-width: none !important;
-            height: 100%;
+            padding: 80px 0;
+            gap: 8px;
         }
 
         .page-wrapper {
-            width: 100%;
             position: relative;
-            min-height: 50vh;
-            display: flex;
-            justify-content: center;
-            border-bottom: 4px solid #000;
+            width: 100%;
+            transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            background: #000;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
         }
 
-        .mode-horizontal .page-wrapper {
-            min-width: 100vw;
-            height: 100vh;
-            scroll-snap-align: start;
-            border-bottom: none;
-        }
-
-        .manga-page {
+        .manga-img {
             width: 100%;
             height: auto;
-            object-fit: contain;
+            display: block;
             opacity: 0;
-            transition: opacity 0.5s ease;
-            pointer-events: none; /* Security: prevent right click directly on image */
+            transition: opacity 0.8s ease;
         }
 
-        .manga-page.loaded { opacity: 1; }
+        .manga-img.loaded { opacity: 1; }
 
-        /* UI Styling */
-        .glass {
-            background: var(--panel-bg);
-            backdrop-filter: blur(30px);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+        /* استایل پنل‌های شیشه‌ای (Glassmorphism) */
+        .glass-panel {
+            background: var(--panel);
+            backdrop-filter: blur(20px) saturate(160%);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
         }
 
-        .setting-card {
-            @apply mb-4 p-5 rounded-[2rem] bg-white/[0.03] border border-white/[0.05] transition-all;
-        }
-
-        .setting-card.active {
-            @apply bg-fuchsia-600/10 border-fuchsia-500/50 shadow-[0_0_20px_rgba(217,70,239,0.1)];
-        }
-
-        /* Modern Sliders */
-        input[type="range"] {
+        /* طراحی اسلایدرهای مدرن */
+        input[type=range] {
             -webkit-appearance: none;
-            @apply w-full h-1.5 bg-zinc-800 rounded-full outline-none mt-4;
+            background: rgba(255,255,255,0.05);
+            height: 6px;
+            border-radius: 10px;
+            width: 100%;
         }
-        input[type="range"]::-webkit-slider-thumb {
+        input[type=range]::-webkit-slider-thumb {
             -webkit-appearance: none;
-            @apply w-6 h-6 bg-white rounded-full border-4 border-fuchsia-600 shadow-lg cursor-pointer transition-transform;
-        }
-        input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.2); }
-
-        /* Quality Buttons */
-        .q-btn { @apply flex-1 py-3 rounded-2xl bg-zinc-900 border border-white/5 text-[10px] font-black transition-all text-zinc-500; }
-        .q-btn.active { @apply bg-white text-black border-white shadow-xl scale-105; }
-
-        /* Chapter List Styling */
-        .ch-card {
-            @apply h-16 rounded-2xl border border-white/5 bg-white/[0.03] flex items-center justify-center text-sm font-black transition-all;
-        }
-        .ch-card.active {
-            @apply bg-fuchsia-600 border-fuchsia-400 text-white shadow-lg shadow-fuchsia-600/30 ring-4 ring-fuchsia-600/20;
-            animation: pulse-active 2s infinite;
+            height: 18px;
+            width: 18px;
+            border-radius: 50%;
+            background: var(--primary);
+            box-shadow: 0 0 10px var(--primary-glow);
+            cursor: pointer;
         }
 
-        @keyframes pulse-active {
-            0% { opacity: 1; }
-            50% { opacity: 0.8; }
-            100% { opacity: 1; }
+        /* انیمیشن سایدبار */
+        .sidebar {
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            right: 0;
+            width: 350px;
+            z-index: 100;
+            transform: translateX(100%);
+            transition: transform 0.5s cubic-bezier(0.3, 1, 0.3, 1);
+        }
+        .sidebar.active { transform: translateX(0); }
+
+        .chapter-item:hover {
+            background: linear-gradient(90deg, rgba(0,242,255,0.1), transparent);
+            border-right: 3px solid var(--primary);
         }
 
-        .ui-hide-top { transform: translateY(-150%); opacity: 0; }
-        .ui-hide-bottom { transform: translateY(150%); opacity: 0; }
+        /* نوار وضعیت بالا و پایین */
+        .hud-top, .hud-bottom {
+            transition: transform 0.4s ease, opacity 0.4s ease;
+        }
+        .hud-hidden { opacity: 0; pointer-events: none; }
+        .hud-top.hud-hidden { transform: translateY(-100%); }
+        .hud-bottom.hud-hidden { transform: translateY(100%); }
+
     </style>
 </head>
-<body class="bg-black">
+<body>
 
-    <!-- Top Navigation -->
-    <header id="top-nav" class="fixed top-5 inset-x-5 z-50 transition-all duration-500">
-        <div class="max-w-5xl mx-auto glass rounded-[2.5rem] p-3.5 flex items-center justify-between shadow-2xl">
+    <!-- نوار پیشرفت -->
+    <div class="fixed top-0 left-0 w-full h-1 z-[110] bg-black/20">
+        <div id="progress-bar" class="h-full bg-cyan-400 shadow-[0_0_10px_#22d3ee] w-0 transition-all duration-150"></div>
+    </div>
+
+    <!-- بخش HUD بالا -->
+    <header id="ui-top" class="hud-top fixed top-0 inset-x-0 z-50 p-4">
+        <div class="max-w-5xl mx-auto flex items-center justify-between px-6 py-3 glass-panel rounded-2xl shadow-2xl">
             <div class="flex items-center gap-4">
-                <button onclick="toggleSidebar('chapters')" class="w-14 h-14 rounded-[1.5rem] bg-fuchsia-600 text-white flex items-center justify-center shadow-lg active:scale-90 transition-all">
-                    <i data-lucide="book-text" class="w-7"></i>
+                <button class="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10">
+                    <i data-lucide="chevron-right"></i>
                 </button>
                 <div>
-                    <h1 class="text-sm font-black text-white">تک‌رو (Solo Leveling)</h1>
-                    <div class="flex items-center gap-2 mt-1">
-                        <span class="w-1.5 h-1.5 rounded-full bg-fuchsia-500"></span>
-                        <p id="indicator" class="text-[10px] text-zinc-500 font-bold">چپتر ۱۷۹ • صفحه ۱</p>
-                    </div>
+                    <h1 class="text-sm font-bold text-white">نام مانگا: سولو لولینگ</h1>
+                    <p class="text-[10px] text-cyan-400 font-mono">CHAPTER 178 • ZENITH ENGINE</p>
                 </div>
             </div>
-            
-            <button onclick="toggleSidebar('settings')" class="w-14 h-14 rounded-[1.5rem] bg-zinc-900 border border-white/5 flex items-center justify-center text-zinc-400">
-                <i data-lucide="settings-2" class="w-7"></i>
-            </button>
+            <div class="flex items-center gap-3">
+                <div class="px-3 py-1 bg-white/5 rounded-lg border border-white/5 font-mono text-sm">
+                    <span id="current-page">01</span> / <span id="total-pages">48</span>
+                </div>
+                <button onclick="toggleSidebar('chapters')" class="w-10 h-10 flex items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                    <i data-lucide="layers"></i>
+                </button>
+            </div>
         </div>
     </header>
 
-    <!-- Content -->
-    <main id="reader-container" class="custom-scroll" onclick="toggleUI()">
-        <div id="reader-core"></div>
+    <!-- محفظه اصلی صفحات -->
+    <main id="viewport">
+        <div id="manga-render" class="manga-container">
+            <!-- صفحات اینجا تزریق می‌شوند -->
+        </div>
+        
+        <!-- انتهای فصل -->
+        <div class="py-20 flex flex-col items-center gap-4 opacity-30">
+            <div class="w-12 h-12 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
+            <span class="text-xs tracking-widest uppercase">پایان این بخش</span>
+        </div>
     </main>
 
-    <!-- Bottom Nav -->
-    <nav id="bottom-nav" class="fixed bottom-8 inset-x-0 z-50 transition-all duration-500 pointer-events-none">
-        <div class="max-w-xs mx-auto glass rounded-full p-2.5 flex items-center justify-between pointer-events-auto">
-            <button onclick="navigate('prev')" class="w-14 h-14 rounded-full flex items-center justify-center text-zinc-500 hover:text-white transition-all">
-                <i data-lucide="arrow-right-circle" class="w-8"></i>
+    <!-- بخش HUD پایین -->
+    <footer id="ui-bottom" class="hud-bottom fixed bottom-6 inset-x-0 z-50 p-4">
+        <div class="max-w-md mx-auto flex items-center justify-around px-4 py-3 glass-panel rounded-[2rem] shadow-2xl">
+            <button class="w-12 h-12 flex items-center justify-center rounded-2xl hover:bg-white/5 text-zinc-400">
+                <i data-lucide="skip-forward"></i>
             </button>
-            <button onclick="scrollToTop()" class="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center shadow-xl hover:scale-110 transition-all">
-                <i data-lucide="arrow-up" class="w-6"></i>
-            </button>
-            <button onclick="navigate('next')" class="w-14 h-14 rounded-full flex items-center justify-center text-zinc-500 hover:text-white transition-all">
-                <i data-lucide="arrow-left-circle" class="w-8"></i>
-            </button>
-        </div>
-    </nav>
-
-    <!-- Side: Chapters -->
-    <aside id="side-chapters" class="fixed inset-y-0 right-0 w-full md:w-[450px] glass z-[100] translate-x-full transition-transform duration-500 flex flex-col hidden">
-        <div class="p-8 border-b border-white/5 flex items-center justify-between">
-            <div class="flex items-center gap-3">
-                <i data-lucide="list-video" class="text-fuchsia-500"></i>
-                <h2 class="text-xl font-black">لیست فصول</h2>
-            </div>
-            <button onclick="closeSidebar('chapters')" class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-zinc-400 hover:text-red-500">
-                <i data-lucide="x"></i>
-            </button>
-        </div>
-        <div id="ch-list" class="flex-grow overflow-y-auto p-6 grid grid-cols-4 gap-3 custom-scroll"></div>
-    </aside>
-
-    <!-- Side: Settings -->
-    <aside id="side-settings" class="fixed inset-y-0 right-0 w-full md:w-[450px] glass z-[100] translate-x-full transition-transform duration-500 flex flex-col hidden">
-        <div class="p-8 border-b border-white/5 flex items-center justify-between">
-            <h2 class="text-xl font-black">تنظیمات رندر</h2>
-            <button onclick="closeSidebar('settings')" class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-zinc-400">
-                <i data-lucide="x"></i>
-            </button>
-        </div>
-        <div class="p-6 space-y-4 overflow-y-auto custom-scroll">
             
-            <div class="setting-card" id="card-quality">
-                <p class="text-[11px] font-black text-zinc-400 mb-4 flex items-center gap-2">
-                    <i data-lucide="cpu" class="w-4"></i> ارتقای کیفیت هوشمند
-                </p>
-                <div class="flex gap-2">
-                    <button onclick="setQuality(0)" class="q-btn" id="q0">Standard</button>
-                    <button onclick="setQuality(1)" class="q-btn" id="q1">High Pro</button>
-                    <button onclick="setQuality(2)" class="q-btn" id="q2">Ultra AI</button>
-                </div>
-            </div>
+            <div class="h-8 w-px bg-white/10"></div>
+            
+            <button onclick="scrollToTop()" class="flex flex-col items-center gap-1 group">
+                <i data-lucide="arrow-up" class="w-5 h-5 group-hover:-translate-y-1 transition-transform"></i>
+                <span class="text-[9px] font-bold">بالا</span>
+            </button>
 
-            <div class="setting-card" id="card-width">
-                <div class="flex justify-between items-center text-[11px] font-black text-zinc-400">
-                    <span class="flex items-center gap-2"><i data-lucide="maximize" class="w-4"></i> ابعاد محتوا</span>
-                    <span id="val-width" class="text-fuchsia-500">900px</span>
-                </div>
-                <input type="range" min="400" max="1800" value="900" oninput="updateWidth(this.value)">
-            </div>
+            <button onclick="toggleSidebar('settings')" class="w-14 h-14 flex items-center justify-center rounded-full bg-cyan-500 text-black shadow-lg shadow-cyan-500/30">
+                <i data-lucide="settings"></i>
+            </button>
 
-            <div class="setting-card" id="card-auto">
-                <div class="flex justify-between items-center mb-2 text-[11px] font-black text-zinc-400">
-                    <span class="flex items-center gap-2"><i data-lucide="zap" class="w-4"></i> سرعت اسکرول</span>
-                    <button onclick="toggleAuto()" id="btn-auto" class="px-3 py-1 bg-zinc-800 rounded-lg">خاموش</button>
-                </div>
-                <input type="range" min="1" max="100" value="10" oninput="updateSpeed(this.value)">
-            </div>
+            <button onclick="toggleAutoScroll()" id="autoscroll-btn" class="flex flex-col items-center gap-1 group">
+                <i data-lucide="play" class="w-5 h-5"></i>
+                <span class="text-[9px] font-bold">اتوپلی</span>
+            </button>
 
-            <div class="grid grid-cols-2 gap-3">
-                <button onclick="setMode('vertical')" id="m-v" class="setting-card !mb-0 flex flex-col items-center gap-2">
-                    <i data-lucide="mouse-pointer-2" class="w-5"></i>
-                    <span class="text-[10px] font-black">عمودی</span>
-                </button>
-                <button onclick="setMode('horizontal')" id="m-h" class="setting-card !mb-0 flex flex-col items-center gap-2">
-                    <i data-lucide="move-horizontal" class="w-5"></i>
-                    <span class="text-[10px] font-black">افقی</span>
-                </button>
+            <div class="h-8 w-px bg-white/10"></div>
+
+            <button class="w-12 h-12 flex items-center justify-center rounded-2xl hover:bg-white/5 text-zinc-400">
+                <i data-lucide="skip-back"></i>
+            </button>
+        </div>
+    </footer>
+
+    <!-- سایدبار فصل‌ها -->
+    <aside id="side-chapters" class="sidebar glass-panel shadow-2xl">
+        <div class="p-6 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-8">
+                <h2 class="text-lg font-black text-cyan-400">فهرست فصل‌ها</h2>
+                <button onclick="toggleSidebar('chapters')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/5"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+            <div id="chapter-list" class="flex-1 overflow-y-auto space-y-2 pr-2">
+                <!-- اسکریپت لیست را پر می‌کند -->
             </div>
         </div>
     </aside>
 
-    <div id="overlay" onclick="closeAllSidebars()" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[90] hidden transition-opacity duration-500 opacity-0"></div>
+    <!-- سایدبار تنظیمات -->
+    <aside id="side-settings" class="sidebar glass-panel shadow-2xl">
+        <div class="p-8 h-full flex flex-col">
+            <div class="flex items-center justify-between mb-10">
+                <h2 class="text-lg font-black">تنظیمات پیشرفته</h2>
+                <button onclick="toggleSidebar('settings')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/5"><i data-lucide="x" class="w-4 h-4"></i></button>
+            </div>
+
+            <div class="space-y-10">
+                <!-- نوار لغزنده عرض -->
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-bold text-zinc-400">عرض تصاویر مانگا</label>
+                        <span id="width-val" class="text-xs text-cyan-400 font-mono">900px</span>
+                    </div>
+                    <input type="range" id="width-slider" min="400" max="1400" value="900" oninput="updateWidth(this.value)">
+                </div>
+
+                <!-- نوار لغزنده اسکرول -->
+                <div class="space-y-4">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-bold text-zinc-400">سرعت اسکرول خودکار</label>
+                        <span id="scroll-val" class="text-xs text-cyan-400 font-mono">2x</span>
+                    </div>
+                    <input type="range" id="scroll-slider" min="1" max="20" value="2" oninput="updateScrollSpeed(this.value)">
+                </div>
+
+                <!-- فیلترها -->
+                <div class="space-y-4">
+                    <label class="text-xs font-bold text-zinc-400">حالت نمایشی تصویر</label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="setFilter('none')" class="p-3 rounded-xl bg-white/5 border border-white/5 text-[10px] active-filter">استاندارد</button>
+                        <button onclick="setFilter('sepia(0.3)')" class="p-3 rounded-xl bg-white/5 border border-white/5 text-[10px]">حالت کاغذی</button>
+                        <button onclick="setFilter('contrast(1.2) grayscale(1)')" class="p-3 rounded-xl bg-white/5 border border-white/5 text-[10px]">سیاه و سفید</button>
+                        <button onclick="setFilter('brightness(0.7)')" class="p-3 rounded-xl bg-white/5 border border-white/5 text-[10px]">حالت شب</button>
+                    </div>
+                </div>
+
+                <!-- سوئیچ‌ها -->
+                <div class="flex items-center justify-between p-4 bg-white/5 rounded-2xl">
+                    <span class="text-xs">بارگذاری سریع (Turbo)</span>
+                    <div class="w-10 h-5 bg-cyan-500 rounded-full flex items-center px-1"><div class="w-3 h-3 bg-white rounded-full"></div></div>
+                </div>
+            </div>
+
+            <div class="mt-auto text-center opacity-20 text-[10px]">
+                ZENITH CORE v16.0.2 - STABLE
+            </div>
+        </div>
+    </aside>
+
+    <!-- لایه کلیک برای مخفی کردن HUD -->
+    <div id="click-zone" class="fixed inset-0 z-40 pointer-events-none">
+        <div class="absolute inset-y-0 left-0 w-24 pointer-events-auto" onclick="changePage(-1)"></div>
+        <div class="absolute inset-y-0 right-0 w-24 pointer-events-auto" onclick="changePage(1)"></div>
+        <div class="absolute inset-0 m-auto w-1/2 h-1/2 pointer-events-auto" onclick="toggleHUD()"></div>
+    </div>
 
     <script>
-        let state = {
-            mode: 'vertical',
+        const state = {
+            pages: 48,
+            current: 1,
+            hud: true,
+            autoScroll: false,
+            scrollSpeed: 2,
             width: 900,
-            quality: 0,
-            speed: 10,
-            isAuto: false,
-            ui: true,
-            currentChapter: 179
+            images: Array.from({length: 48}, (_, i) => `https://picsum.photos/id/${(i+60)*2}/1000/1500`)
         };
 
-        let autoScrollInterval = null;
-
+        const vport = document.getElementById('viewport');
+        const render = document.getElementById('manga-render');
+        const progress = document.getElementById('progress-bar');
+        
         function init() {
-            renderPages();
-            renderChapters();
-            applyState();
-            setupSecurity();
+            lucide.createIcons();
+            initPages();
+            initChapters();
+            setupScrollListener();
+        }
+
+        function initPages() {
+            render.innerHTML = '';
+            state.images.forEach((src, i) => {
+                const wrapper = document.createElement('div');
+                wrapper.className = 'page-wrapper';
+                wrapper.style.maxWidth = state.width + 'px';
+                
+                const img = document.createElement('img');
+                img.className = 'manga-img';
+                img.dataset.src = src;
+                img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+                
+                const observer = new IntersectionObserver(entries => {
+                    entries.forEach(e => {
+                        if(e.isIntersecting) {
+                            e.target.src = e.target.dataset.src;
+                            e.target.onload = () => e.target.classList.add('loaded');
+                            observer.unobserve(e.target);
+                        }
+                    });
+                }, { rootMargin: '800px' });
+
+                observer.observe(img);
+                wrapper.appendChild(img);
+                render.appendChild(wrapper);
+            });
+        }
+
+        function initChapters() {
+            const list = document.getElementById('chapter-list');
+            for(let i=178; i > 160; i--) {
+                const item = document.createElement('div');
+                item.className = 'chapter-item p-4 rounded-xl cursor-pointer flex justify-between items-center transition-all bg-white/2';
+                item.innerHTML = `
+                    <div class="flex flex-col">
+                        <span class="text-xs font-bold text-zinc-200">فصل ${i}</span>
+                        <span class="text-[9px] text-zinc-500 italic">نام چپتر به فارسی</span>
+                    </div>
+                    <i data-lucide="play-circle" class="w-4 h-4 text-zinc-600"></i>
+                `;
+                list.appendChild(item);
+            }
             lucide.createIcons();
         }
 
-        function renderPages() {
-            const container = document.getElementById('reader-core');
-            container.innerHTML = '';
-            for(let i=1; i<=25; i++) {
-                const wrap = document.createElement('div');
-                wrap.className = 'page-wrapper';
-                wrap.id = `page-${i}`;
-                wrap.innerHTML = `<img class="manga-page" data-src="https://picsum.photos/seed/v11-${i}/1200/1800">`;
-                container.appendChild(wrap);
-            }
-            setupObserver();
-        }
+        function setupScrollListener() {
+            vport.addEventListener('scroll', () => {
+                const pos = vport.scrollTop;
+                const total = vport.scrollHeight - vport.clientHeight;
+                const p = (pos / total) * 100;
+                progress.style.width = p + '%';
 
-        function renderChapters() {
-            const list = document.getElementById('ch-list');
-            list.innerHTML = '';
-            for(let i=1; i<=185; i++) {
-                const btn = document.createElement('button');
-                btn.className = `ch-card ${i === state.currentChapter ? 'active' : ''}`;
-                btn.innerText = i;
-                list.appendChild(btn);
-            }
-        }
-
-        function applyState() {
-            setMode(state.mode);
-            updateWidth(state.width);
-            setQuality(state.quality);
-            updateSpeed(state.speed);
-        }
-
-        // Action Functions
-        function setMode(m) {
-            state.mode = m;
-            document.body.className = m === 'horizontal' ? 'mode-horizontal' : '';
-            document.getElementById('m-v').classList.toggle('active', m === 'vertical');
-            document.getElementById('m-h').classList.toggle('active', m === 'horizontal');
-            setupObserver();
-        }
-
-        function updateWidth(w) {
-            state.width = w;
-            document.documentElement.style.setProperty('--manga-width', `${w}px`);
-            document.getElementById('val-width').innerText = `${w}px`;
-            document.getElementById('card-width').classList.toggle('active', w > 1000);
-        }
-
-        function setQuality(lv) {
-            state.quality = lv;
-            const filters = ['none', 'contrast(1.05) saturate(1.1) sharp', 'contrast(1.15) saturate(1.2) brightness(1.1)'];
-            document.querySelectorAll('.q-btn').forEach((b, i) => b.classList.toggle('active', i === lv));
-            document.querySelectorAll('.manga-page').forEach(img => {
-                img.style.filter = filters[lv];
-                img.style.imageRendering = lv > 0 ? 'crisp-edges' : 'auto';
-            });
-            document.getElementById('card-quality').classList.toggle('active', lv > 0);
-        }
-
-        function toggleAuto() {
-            state.isAuto = !state.isAuto;
-            const btn = document.getElementById('btn-auto');
-            if(state.isAuto) {
-                btn.innerText = 'در حال حرکت';
-                btn.className = 'px-3 py-1 bg-fuchsia-600 text-white rounded-lg shadow-lg';
-                document.getElementById('card-auto').classList.add('active');
-                autoScrollInterval = setInterval(() => {
-                    const c = document.getElementById('reader-container');
-                    const step = state.speed / 10;
-                    if(state.mode === 'vertical') c.scrollTop += step;
-                    else c.scrollLeft -= step;
-                }, 16);
-            } else {
-                btn.innerText = 'خاموش';
-                btn.className = 'px-3 py-1 bg-zinc-800 rounded-lg';
-                document.getElementById('card-auto').classList.remove('active');
-                clearInterval(autoScrollInterval);
-            }
-        }
-
-        function updateSpeed(s) { state.speed = s; }
-
-        function toggleUI() {
-            state.ui = !state.ui;
-            document.getElementById('top-nav').classList.toggle('ui-hide-top', !state.ui);
-            document.getElementById('bottom-nav').classList.toggle('ui-hide-bottom', !state.ui);
-        }
-
-        function navigate(dir) {
-            const c = document.getElementById('reader-container');
-            const step = state.mode === 'vertical' ? window.innerHeight * 0.8 : window.innerWidth;
-            if(state.mode === 'vertical') c.scrollBy({top: dir === 'next' ? step : -step, behavior: 'smooth'});
-            else c.scrollBy({left: dir === 'next' ? -step : step, behavior: 'smooth'});
-        }
-
-        function setupObserver() {
-            const container = document.getElementById('reader-container');
-            const options = { threshold: 0.1, root: state.mode === 'horizontal' ? container : null };
-            const observer = new IntersectionObserver((entries) => {
-                entries.forEach(e => {
-                    if(e.isIntersecting) {
-                        const img = e.target.querySelector('img');
-                        if(img && !img.src) {
-                            img.src = img.dataset.src;
-                            img.onload = () => img.classList.add('loaded');
-                        }
-                        document.getElementById('indicator').innerText = `چپتر ۱۷۹ • صفحه ${e.target.id.split('-')[1]}`;
+                // آپدیت شماره صفحه
+                const frames = document.querySelectorAll('.page-wrapper');
+                frames.forEach((f, i) => {
+                    const rect = f.getBoundingClientRect();
+                    if(rect.top < window.innerHeight/2 && rect.bottom > window.innerHeight/2) {
+                        state.current = i + 1;
+                        document.getElementById('current-page').innerText = String(state.current).padStart(2, '0');
                     }
                 });
-            }, options);
-            document.querySelectorAll('.page-wrapper').forEach(p => observer.observe(p));
-        }
-
-        // Security Layer
-        function setupSecurity() {
-            document.addEventListener('contextmenu', e => e.preventDefault());
-            document.addEventListener('keydown', e => {
-                if(e.ctrlKey && (e.key === 's' || e.key === 'u' || e.key === 'p' || e.key === 'i')) e.preventDefault();
-                if(e.key === 'F12') e.preventDefault();
             });
-            document.addEventListener('dragstart', e => { if(e.target.tagName === 'IMG') e.preventDefault(); });
         }
 
-        // UI Handlers
+        function updateWidth(val) {
+            state.width = val;
+            document.getElementById('width-val').innerText = val + 'px';
+            document.querySelectorAll('.page-wrapper').forEach(p => p.style.maxWidth = val + 'px');
+        }
+
+        function updateScrollSpeed(val) {
+            state.scrollSpeed = val;
+            document.getElementById('scroll-val').innerText = val + 'x';
+        }
+
+        function toggleAutoScroll() {
+            state.autoScroll = !state.autoScroll;
+            const btn = document.getElementById('autoscroll-btn');
+            if(state.autoScroll) {
+                btn.classList.add('text-cyan-400');
+                btn.querySelector('i').setAttribute('data-lucide', 'pause');
+                autoScrollAction();
+            } else {
+                btn.classList.remove('text-cyan-400');
+                btn.querySelector('i').setAttribute('data-lucide', 'play');
+            }
+            lucide.createIcons();
+        }
+
+        function autoScrollAction() {
+            if(!state.autoScroll) return;
+            vport.scrollBy(0, 1 * (state.scrollSpeed / 2));
+            requestAnimationFrame(autoScrollAction);
+        }
+
+        function setFilter(f) {
+            render.style.filter = f;
+            document.querySelectorAll('.active-filter').forEach(b => b.classList.remove('active-filter', 'bg-cyan-500', 'text-black'));
+            event.target.classList.add('active-filter', 'bg-cyan-500', 'text-black');
+        }
+
         function toggleSidebar(id) {
-            const s = document.getElementById(`side-${id}`);
-            const o = document.getElementById('overlay');
-            s.classList.remove('hidden');
-            o.classList.remove('hidden');
-            setTimeout(() => { s.classList.remove('translate-x-full'); o.classList.add('opacity-100'); }, 10);
+            const el = document.getElementById(`side-${id}`);
+            el.classList.toggle('active');
         }
 
-        function closeSidebar(id) {
-            const s = document.getElementById(`side-${id}`);
-            const o = document.getElementById('overlay');
-            s.classList.add('translate-x-full');
-            o.classList.remove('opacity-100');
-            setTimeout(() => { s.classList.add('hidden'); o.classList.add('hidden'); }, 500);
+        function toggleHUD() {
+            state.hud = !state.hud;
+            document.getElementById('ui-top').classList.toggle('hud-hidden');
+            document.getElementById('ui-bottom').classList.toggle('hud-hidden');
         }
 
-        function closeAllSidebars() { closeSidebar('settings'); closeSidebar('chapters'); }
-        function scrollToTop() { document.getElementById('reader-container').scrollTo({top: 0, behavior: 'smooth'}); }
+        function scrollToTop() {
+            vport.scrollTo({top: 0, behavior: 'smooth'});
+        }
 
         window.onload = init;
     </script>

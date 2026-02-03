@@ -1,410 +1,644 @@
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>مانگا اپکس زنیت | نسخه ۱۶.۰</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css" rel="stylesheet"/>
-    <script src="https://unpkg.com/lucide@latest"></script>
-    <style>
-        :root {
-            --primary: #00f2ff;
-            --primary-glow: rgba(0, 242, 255, 0.4);
-            --secondary: #7000ff;
-            --bg-deep: #050508;
-            --panel: rgba(13, 13, 20, 0.95);
-            --border: rgba(255, 255, 255, 0.08);
-        }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Manga Apex Zenith | Ultimate Fix v19.1</title>
 
-        * {
-            scrollbar-width: thin;
-            scrollbar-color: var(--primary) transparent;
-            -webkit-tap-highlight-color: transparent;
-        }
+  <!-- Tailwind (demo CDN) + Vazir font + Lucide -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css" rel="stylesheet"/>
+  <script src="https://unpkg.com/lucide@latest"></script>
 
-        body {
-            font-family: 'Vazirmatn', sans-serif;
-            background-color: var(--bg-deep);
-            color: #fff;
-            margin: 0;
-            overflow: hidden;
-            background-attachment: fixed;
-        }
+  <style>
+    :root{
+      --primary: #00f2ff;
+      --bg-deep: #050507;
+      --panel: rgba(10,10,15,0.98);
+      --border: rgba(255,255,255,0.08);
+      --manga-w: 900px;
+    }
 
-        /* موتور رندرینگ صفحات */
-        #viewport {
-            width: 100vw;
-            height: 100vh;
-            overflow-y: scroll;
-            overflow-x: hidden;
-            scroll-behavior: smooth;
-        }
+    /* sensible defaults */
+    html,body{height:100%;margin:0;background:var(--bg-deep);color:#fff;font-family:'Vazirmatn',sans-serif;}
+    *{box-sizing:border-box}
+    /* Allow selection in inputs, but disable global accidental selection on images */
+    body{user-select:none}
+    input,textarea,button,select{user-select:text}
 
-        .manga-container {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            padding: 80px 0;
-            gap: 8px;
-        }
+    /* viewport */
+    #main-viewport{width:100vw;height:100vh;overflow-y:auto;overflow-x:hidden;position:relative;scroll-behavior:smooth}
+    #main-viewport.book-mode{display:flex;overflow-y:hidden;overflow-x:auto;scroll-snap-type:x mandatory}
+    .manga-render{display:flex;flex-direction:column;align-items:center;width:100%;transition:filter .25s}
+    .book-mode .manga-render{flex-direction:row;height:100vh;width:max-content}
+    .page-frame{width:100%;max-width:var(--manga-w);display:flex;justify-content:center;flex-shrink:0;margin:0 auto}
+    .book-mode .page-frame{height:100vh;width:100vw;max-width:100vw !important;scroll-snap-align:center;display:flex;align-items:center;justify-content:center}
+    .manga-img{width:100%;height:auto;display:block;opacity:0;transition:opacity .35s ease, transform .25s}
+    .book-mode .manga-img{height:100%;width:auto;max-width:100%;object-fit:contain}
 
-        .page-wrapper {
-            position: relative;
-            width: 100%;
-            transition: max-width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            background: #000;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.5);
-        }
+    /* quality helpers (non-destructive) */
+    .q-std{image-rendering:auto;filter:none}
+    .q-hd{filter:contrast(1.08) brightness(1.02) saturate(1.03)}
+    .q-uhd{filter:contrast(1.12) saturate(1.08) brightness(1.02)}
 
-        .manga-img {
-            width: 100%;
-            height: auto;
-            display: block;
-            opacity: 0;
-            transition: opacity 0.8s ease;
-        }
-
-        .manga-img.loaded { opacity: 1; }
-
-        /* استایل پنل‌های شیشه‌ای (Glassmorphism) */
-        .glass-panel {
-            background: var(--panel);
-            backdrop-filter: blur(20px) saturate(160%);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border);
-        }
-
-        /* طراحی اسلایدرهای مدرن */
-        input[type=range] {
-            -webkit-appearance: none;
-            background: rgba(255,255,255,0.05);
-            height: 6px;
-            border-radius: 10px;
-            width: 100%;
-        }
-        input[type=range]::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            height: 18px;
-            width: 18px;
-            border-radius: 50%;
-            background: var(--primary);
-            box-shadow: 0 0 10px var(--primary-glow);
-            cursor: pointer;
-        }
-
-        /* انیمیشن سایدبار */
-        .sidebar {
-            position: fixed;
-            top: 0;
-            bottom: 0;
-            right: 0;
-            width: 350px;
-            z-index: 100;
-            transform: translateX(100%);
-            transition: transform 0.5s cubic-bezier(0.3, 1, 0.3, 1);
-        }
-        .sidebar.active { transform: translateX(0); }
-
-        .chapter-item:hover {
-            background: linear-gradient(90deg, rgba(0,242,255,0.1), transparent);
-            border-right: 3px solid var(--primary);
-        }
-
-        /* نوار وضعیت بالا و پایین */
-        .hud-top, .hud-bottom {
-            transition: transform 0.4s ease, opacity 0.4s ease;
-        }
-        .hud-hidden { opacity: 0; pointer-events: none; }
-        .hud-top.hud-hidden { transform: translateY(-100%); }
-        .hud-bottom.hud-hidden { transform: translateY(100%); }
-
-    </style>
+    /* glass ui */
+    .glass{background:var(--panel);backdrop-filter:blur(20px);border:1px solid var(--border)}
+    .sidebar{position:fixed;top:0;bottom:0;right:0;width:360px;z-index:200;transform:translateX(100%);transition:transform .35s cubic-bezier(.2,1,.2,1)}
+    .sidebar.active{transform:translateX(0)}
+    .overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(3px);z-index:150;opacity:0;pointer-events:none;transition:opacity .3s}
+    .overlay.active{opacity:1;pointer-events:auto}
+    .hud-hidden{opacity:0;pointer-events:none;transform:translateY(20px)}
+    .active-glow{background:var(--primary) !important;color:#000 !important;box-shadow:0 0 20px var(--primary);border-color:transparent !important}
+    .current-ch{background:rgba(0,242,255,0.12);border-right:4px solid var(--primary)}
+    /* range */
+    input[type=range]{-webkit-appearance:none;width:100%;height:6px;background:#1f1f23;border-radius:10px;outline:none}
+    input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:18px;height:18px;border-radius:50%;border:2px solid #fff;background:var(--primary);cursor:pointer;box-shadow:0 0 8px rgba(0,242,255,.45)}
+    /* accessibility focus */
+    [tabindex]:focus{outline:3px solid rgba(0,242,255,.15);outline-offset:2px}
+    /* small util */
+    .hidden{display:none}
+    @media (prefers-reduced-motion: reduce){
+      html{scroll-behavior:auto}
+    }
+  </style>
 </head>
 <body>
 
-    <!-- نوار پیشرفت -->
-    <div class="fixed top-0 left-0 w-full h-1 z-[110] bg-black/20">
-        <div id="progress-bar" class="h-full bg-cyan-400 shadow-[0_0_10px_#22d3ee] w-0 transition-all duration-150"></div>
+  <!-- overlay -->
+  <div id="ui-overlay" class="overlay" aria-hidden="true"></div>
+
+  <!-- progress bar -->
+  <div class="fixed top-0 left-0 w-full h-1 z-[250]">
+    <div id="progress" class="h-full bg-cyan-400 w-0 transition-all duration-300 shadow-[0_0_15px_#00f2ff]"></div>
+  </div>
+
+  <!-- header -->
+  <header id="ui-top" class="fixed top-4 inset-x-0 z-50 px-6 transition-all duration-300" role="banner">
+    <div class="max-w-6xl mx-auto flex items-center justify-between p-3 glass rounded-2xl shadow-xl">
+      <div class="flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400" aria-hidden="true">
+          <i data-lucide="shield-check"></i>
+        </div>
+        <div>
+          <h1 class="text-xs font-black uppercase">Solo Leveling</h1>
+          <p class="text-[9px] text-zinc-500 font-mono tracking-widest">APEX ENGINE v19.1</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-3">
+        <div class="text-[10px] font-mono bg-white/5 px-4 py-2 rounded-xl border border-white/5" aria-live="polite">
+          <span id="p-curr" class="text-cyan-400" aria-label="صف فعلی">01</span> / <span id="p-total">00</span>
+        </div>
+        <button id="btn-chapters" aria-haspopup="true" aria-controls="side-chapters" aria-expanded="false" class="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10" title="لیست قسمت‌ها" tabindex="0">
+          <i data-lucide="layout-grid"></i>
+        </button>
+      </div>
     </div>
+  </header>
 
-    <!-- بخش HUD بالا -->
-    <header id="ui-top" class="hud-top fixed top-0 inset-x-0 z-50 p-4">
-        <div class="max-w-5xl mx-auto flex items-center justify-between px-6 py-3 glass-panel rounded-2xl shadow-2xl">
-            <div class="flex items-center gap-4">
-                <button class="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 hover:bg-white/10">
-                    <i data-lucide="chevron-right"></i>
-                </button>
-                <div>
-                    <h1 class="text-sm font-bold text-white">نام مانگا: سولو لولینگ</h1>
-                    <p class="text-[10px] text-cyan-400 font-mono">CHAPTER 178 • ZENITH ENGINE</p>
-                </div>
-            </div>
-            <div class="flex items-center gap-3">
-                <div class="px-3 py-1 bg-white/5 rounded-lg border border-white/5 font-mono text-sm">
-                    <span id="current-page">01</span> / <span id="total-pages">48</span>
-                </div>
-                <button onclick="toggleSidebar('chapters')" class="w-10 h-10 flex items-center justify-center rounded-xl bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
-                    <i data-lucide="layers"></i>
-                </button>
-            </div>
-        </div>
-    </header>
+  <!-- main viewer -->
+  <main id="main-viewport" tabindex="0" role="main" aria-label="مرورگر مانگا">
+    <div id="render-container" class="manga-render" ></div>
+  </main>
 
-    <!-- محفظه اصلی صفحات -->
-    <main id="viewport">
-        <div id="manga-render" class="manga-container">
-            <!-- صفحات اینجا تزریق می‌شوند -->
-        </div>
-        
-        <!-- انتهای فصل -->
-        <div class="py-20 flex flex-col items-center gap-4 opacity-30">
-            <div class="w-12 h-12 border-2 border-cyan-500 border-t-transparent rounded-full animate-spin"></div>
-            <span class="text-xs tracking-widest uppercase">پایان این بخش</span>
-        </div>
-    </main>
-
-    <!-- بخش HUD پایین -->
-    <footer id="ui-bottom" class="hud-bottom fixed bottom-6 inset-x-0 z-50 p-4">
-        <div class="max-w-md mx-auto flex items-center justify-around px-4 py-3 glass-panel rounded-[2rem] shadow-2xl">
-            <button class="w-12 h-12 flex items-center justify-center rounded-2xl hover:bg-white/5 text-zinc-400">
-                <i data-lucide="skip-forward"></i>
-            </button>
-            
-            <div class="h-8 w-px bg-white/10"></div>
-            
-            <button onclick="scrollToTop()" class="flex flex-col items-center gap-1 group">
-                <i data-lucide="arrow-up" class="w-5 h-5 group-hover:-translate-y-1 transition-transform"></i>
-                <span class="text-[9px] font-bold">بالا</span>
-            </button>
-
-            <button onclick="toggleSidebar('settings')" class="w-14 h-14 flex items-center justify-center rounded-full bg-cyan-500 text-black shadow-lg shadow-cyan-500/30">
-                <i data-lucide="settings"></i>
-            </button>
-
-            <button onclick="toggleAutoScroll()" id="autoscroll-btn" class="flex flex-col items-center gap-1 group">
-                <i data-lucide="play" class="w-5 h-5"></i>
-                <span class="text-[9px] font-bold">اتوپلی</span>
-            </button>
-
-            <div class="h-8 w-px bg-white/10"></div>
-
-            <button class="w-12 h-12 flex items-center justify-center rounded-2xl hover:bg-white/5 text-zinc-400">
-                <i data-lucide="skip-back"></i>
-            </button>
-        </div>
-    </footer>
-
-    <!-- سایدبار فصل‌ها -->
-    <aside id="side-chapters" class="sidebar glass-panel shadow-2xl">
-        <div class="p-6 h-full flex flex-col">
-            <div class="flex items-center justify-between mb-8">
-                <h2 class="text-lg font-black text-cyan-400">فهرست فصل‌ها</h2>
-                <button onclick="toggleSidebar('chapters')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/5"><i data-lucide="x" class="w-4 h-4"></i></button>
-            </div>
-            <div id="chapter-list" class="flex-1 overflow-y-auto space-y-2 pr-2">
-                <!-- اسکریپت لیست را پر می‌کند -->
-            </div>
-        </div>
-    </aside>
-
-    <!-- سایدبار تنظیمات -->
-    <aside id="side-settings" class="sidebar glass-panel shadow-2xl">
-        <div class="p-8 h-full flex flex-col">
-            <div class="flex items-center justify-between mb-10">
-                <h2 class="text-lg font-black">تنظیمات پیشرفته</h2>
-                <button onclick="toggleSidebar('settings')" class="w-8 h-8 flex items-center justify-center rounded-full bg-white/5"><i data-lucide="x" class="w-4 h-4"></i></button>
-            </div>
-
-            <div class="space-y-10">
-                <!-- نوار لغزنده عرض -->
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center">
-                        <label class="text-xs font-bold text-zinc-400">عرض تصاویر مانگا</label>
-                        <span id="width-val" class="text-xs text-cyan-400 font-mono">900px</span>
-                    </div>
-                    <input type="range" id="width-slider" min="400" max="1400" value="900" oninput="updateWidth(this.value)">
-                </div>
-
-                <!-- نوار لغزنده اسکرول -->
-                <div class="space-y-4">
-                    <div class="flex justify-between items-center">
-                        <label class="text-xs font-bold text-zinc-400">سرعت اسکرول خودکار</label>
-                        <span id="scroll-val" class="text-xs text-cyan-400 font-mono">2x</span>
-                    </div>
-                    <input type="range" id="scroll-slider" min="1" max="20" value="2" oninput="updateScrollSpeed(this.value)">
-                </div>
-
-                <!-- فیلترها -->
-                <div class="space-y-4">
-                    <label class="text-xs font-bold text-zinc-400">حالت نمایشی تصویر</label>
-                    <div class="grid grid-cols-2 gap-2">
-                        <button onclick="setFilter('none')" class="p-3 rounded-xl bg-white/5 border border-white/5 text-[10px] active-filter">استاندارد</button>
-                        <button onclick="setFilter('sepia(0.3)')" class="p-3 rounded-xl bg-white/5 border border-white/5 text-[10px]">حالت کاغذی</button>
-                        <button onclick="setFilter('contrast(1.2) grayscale(1)')" class="p-3 rounded-xl bg-white/5 border border-white/5 text-[10px]">سیاه و سفید</button>
-                        <button onclick="setFilter('brightness(0.7)')" class="p-3 rounded-xl bg-white/5 border border-white/5 text-[10px]">حالت شب</button>
-                    </div>
-                </div>
-
-                <!-- سوئیچ‌ها -->
-                <div class="flex items-center justify-between p-4 bg-white/5 rounded-2xl">
-                    <span class="text-xs">بارگذاری سریع (Turbo)</span>
-                    <div class="w-10 h-5 bg-cyan-500 rounded-full flex items-center px-1"><div class="w-3 h-3 bg-white rounded-full"></div></div>
-                </div>
-            </div>
-
-            <div class="mt-auto text-center opacity-20 text-[10px]">
-                ZENITH CORE v16.0.2 - STABLE
-            </div>
-        </div>
-    </aside>
-
-    <!-- لایه کلیک برای مخفی کردن HUD -->
-    <div id="click-zone" class="fixed inset-0 z-40 pointer-events-none">
-        <div class="absolute inset-y-0 left-0 w-24 pointer-events-auto" onclick="changePage(-1)"></div>
-        <div class="absolute inset-y-0 right-0 w-24 pointer-events-auto" onclick="changePage(1)"></div>
-        <div class="absolute inset-0 m-auto w-1/2 h-1/2 pointer-events-auto" onclick="toggleHUD()"></div>
+  <!-- footer -->
+  <footer id="ui-bottom" class="fixed bottom-8 inset-x-0 z-50 transition-all duration-300" role="contentinfo">
+    <div class="max-w-fit mx-auto flex items-center gap-3 p-2.5 glass rounded-full shadow-2xl">
+      <button id="prev-ch" class="w-12 h-12 flex items-center justify-center rounded-full text-zinc-400 hover:text-white transition-all" aria-label="قسمت قبلی" tabindex="0"><i data-lucide="chevron-right"></i></button>
+      <div class="w-px h-6 bg-white/10"></div>
+      <button id="btn-settings" class="w-14 h-14 flex items-center justify-center rounded-full bg-cyan-500 text-black shadow-lg shadow-cyan-500/40 hover:scale-105 active:scale-95 transition-all" aria-haspopup="true" aria-controls="side-settings" aria-expanded="false" title="تنظیمات" tabindex="0"><i data-lucide="settings"></i></button>
+      <button id="btn-auto" class="w-12 h-12 flex items-center justify-center rounded-full text-zinc-400 hover:text-white transition-all" aria-pressed="false" aria-label="پخش خودکار" tabindex="0"><i data-lucide="play"></i></button>
+      <button id="btn-top" class="w-12 h-12 flex items-center justify-center rounded-full text-zinc-400 hover:text-white transition-all" aria-label="بازگشت به بالا" tabindex="0"><i data-lucide="arrow-up-to-line"></i></button>
+      <div class="w-px h-6 bg-white/10"></div>
+      <button id="next-ch" class="w-12 h-12 flex items-center justify-center rounded-full text-zinc-400 hover:text-white transition-all" aria-label="قسمت بعدی" tabindex="0"><i data-lucide="chevron-left"></i></button>
     </div>
+  </footer>
 
-    <script>
-        const state = {
-            pages: 48,
-            current: 1,
-            hud: true,
-            autoScroll: false,
-            scrollSpeed: 2,
-            width: 900,
-            images: Array.from({length: 48}, (_, i) => `https://picsum.photos/id/${(i+60)*2}/1000/1500`)
-        };
+  <!-- chapters sidebar -->
+  <aside id="side-chapters" class="sidebar glass" role="dialog" aria-hidden="true" aria-label="فهرست قسمت‌ها" tabindex="-1">
+    <div class="p-6 h-full flex flex-col">
+      <div class="flex justify-between items-center mb-8">
+        <h2 class="text-sm font-black text-cyan-400 flex items-center gap-2"><i data-lucide="bookmark"></i> لیست قسمت‌ها</h2>
+        <button id="close-ch" class="p-2 bg-white/5 rounded-lg text-zinc-500 hover:text-white transition-all" aria-label="بستن"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+      <div class="relative mb-6">
+        <input id="ch-search" type="text" placeholder="فیلتر آنی..." class="w-full bg-white/5 border border-white/5 rounded-xl py-3 pr-4 pl-10 text-xs outline-none focus:border-cyan-500/40 transition-all" aria-label="جستجوی قسمت‌ها"/>
+        <i data-lucide="search" class="absolute left-3 top-3.5 w-4 h-4 text-zinc-600"></i>
+      </div>
+      <div id="ch-list" class="flex-1 overflow-y-auto space-y-2 pl-2" tabindex="0"></div>
+    </div>
+  </aside>
 
-        const vport = document.getElementById('viewport');
-        const render = document.getElementById('manga-render');
-        const progress = document.getElementById('progress-bar');
-        
-        function init() {
-            lucide.createIcons();
-            initPages();
-            initChapters();
-            setupScrollListener();
+  <!-- settings sidebar -->
+  <aside id="side-settings" class="sidebar glass" role="dialog" aria-hidden="true" aria-label="تنظیمات" tabindex="-1">
+    <div class="p-8 h-full flex flex-col overflow-y-auto">
+      <div class="flex justify-between items-center mb-10">
+        <h2 class="text-sm font-black uppercase tracking-widest">پیکربندی پیشرفته</h2>
+        <button id="close-settings" class="p-2 bg-white/5 rounded-lg text-zinc-500 hover:text-white transition-all" aria-label="بستن"><i data-lucide="x" class="w-4 h-4"></i></button>
+      </div>
+
+      <div class="space-y-10">
+        <div class="space-y-4">
+          <label class="text-[10px] text-zinc-500 font-bold uppercase tracking-tighter">حالت نمایش (Layout)</label>
+          <div class="grid grid-cols-2 gap-2 p-1.5 bg-black/40 rounded-2xl">
+            <button id="m-web" data-mode="webtoon" class="py-3 rounded-xl text-[10px] font-black transition-all" tabindex="0">وبتون</button>
+            <button id="m-book" data-mode="book" class="py-3 rounded-xl text-[10px] font-black transition-all" tabindex="0">کتابی</button>
+          </div>
+        </div>
+
+        <div class="space-y-4" id="width-ctrl">
+          <div class="flex justify-between items-center">
+            <label class="text-[10px] text-zinc-500 font-bold uppercase">عرض تصویر</label>
+            <span id="v-width" class="text-xs text-cyan-400 font-mono">900px</span>
+          </div>
+          <input type="range" min="300" max="1400" id="width-slider" />
+        </div>
+
+        <div class="space-y-4">
+          <div class="flex justify-between items-center">
+            <label class="text-[10px] text-zinc-500 font-bold uppercase">سرعت پیمایش اتوماتیک</label>
+            <span id="v-speed" class="text-xs text-cyan-400 font-mono">15</span>
+          </div>
+          <input type="range" min="1" max="100" id="speed-slider" />
+        </div>
+
+        <div class="space-y-4">
+          <label class="text-[10px] text-zinc-500 font-bold uppercase">ارتقا کیفیت (Engine)</label>
+          <div class="flex p-1.5 bg-black/40 rounded-2xl">
+            <button class="q-btn flex-1 py-2.5 text-[9px] font-black rounded-xl" data-q="std" tabindex="0">Standard</button>
+            <button class="q-btn flex-1 py-2.5 text-[9px] font-black rounded-xl" data-q="hd" tabindex="0">HD Mode</button>
+            <button class="q-btn flex-1 py-2.5 text-[9px] font-black rounded-xl" data-q="uhd" tabindex="0">Ultra Sharp</button>
+          </div>
+        </div>
+
+        <div class="space-y-4">
+          <label class="text-[10px] text-zinc-500 font-bold uppercase">فیلترهای ایمنی و بصری</label>
+          <div id="filter-grid" class="grid grid-cols-2 gap-2">
+            <button class="f-btn p-3 rounded-xl text-[9px] font-bold" data-f="none" tabindex="0">بدون فیلتر</button>
+            <button class="f-btn p-3 rounded-xl text-[9px] font-bold" data-f="sepia" tabindex="0">محافظ چشم</button>
+            <button class="f-btn p-3 rounded-xl text-[9px] font-bold" data-f="bw" tabindex="0">سیاه و سفید</button>
+            <button class="f-btn p-3 rounded-xl text-[9px] font-bold" data-f="dark" tabindex="0">کنتراست بالا</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Script: modular but all in-file -->
+  <script>
+  (function(){
+
+    /*****************************************************************
+     * Config & Defaults
+     *****************************************************************/
+    const STORAGE_KEY = 'apex_zenith_v19_state';
+    const DEFAULT_STATE = {
+      mode: 'webtoon',     // 'webtoon' | 'book'
+      width: 900,
+      speed: 15,
+      quality: 'std',      // 'std' | 'hd' | 'uhd'
+      filter: 'none',
+      currentChapter: 1,
+      auto: false
+    };
+    const TOTAL_CHAPTERS = 10;
+    const IMAGES_PER_CHAPTER = 12;
+    const LAZY_ROOT_MARGIN = '800px'; // balanced for perf
+    const PAGE_VISIBLE_THRESHOLD = 0.6; // 60% visible => current page
+
+    /*****************************************************************
+     * Storage Module
+     *****************************************************************/
+    const Storage = {
+      load(){
+        try{
+          const raw = localStorage.getItem(STORAGE_KEY);
+          return raw ? Object.assign({}, DEFAULT_STATE, JSON.parse(raw)) : Object.assign({}, DEFAULT_STATE);
+        }catch(e){
+          console.warn('load storage failed',e);
+          return Object.assign({}, DEFAULT_STATE);
         }
+      },
+      save(state){
+        try{ localStorage.setItem(STORAGE_KEY, JSON.stringify(state)); }catch(e){ console.warn('save failed',e); }
+      }
+    };
 
-        function initPages() {
-            render.innerHTML = '';
-            state.images.forEach((src, i) => {
-                const wrapper = document.createElement('div');
-                wrapper.className = 'page-wrapper';
-                wrapper.style.maxWidth = state.width + 'px';
-                
-                const img = document.createElement('img');
-                img.className = 'manga-img';
-                img.dataset.src = src;
-                img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
-                
-                const observer = new IntersectionObserver(entries => {
-                    entries.forEach(e => {
-                        if(e.isIntersecting) {
-                            e.target.src = e.target.dataset.src;
-                            e.target.onload = () => e.target.classList.add('loaded');
-                            observer.unobserve(e.target);
-                        }
-                    });
-                }, { rootMargin: '800px' });
+    /*****************************************************************
+     * State (single source of truth)
+     *****************************************************************/
+    const state = Storage.load();
 
-                observer.observe(img);
-                wrapper.appendChild(img);
-                render.appendChild(wrapper);
-            });
-        }
+    /*****************************************************************
+     * DOM refs
+     *****************************************************************/
+    const view = document.getElementById('main-viewport');
+    const render = document.getElementById('render-container');
+    const pTotalEl = document.getElementById('p-total');
+    const pCurrEl = document.getElementById('p-curr');
+    const progressEl = document.getElementById('progress');
+    const overlay = document.getElementById('ui-overlay');
+    const sideCh = document.getElementById('side-chapters');
+    const sideSettings = document.getElementById('side-settings');
 
-        function initChapters() {
-            const list = document.getElementById('chapter-list');
-            for(let i=178; i > 160; i--) {
-                const item = document.createElement('div');
-                item.className = 'chapter-item p-4 rounded-xl cursor-pointer flex justify-between items-center transition-all bg-white/2';
-                item.innerHTML = `
-                    <div class="flex flex-col">
-                        <span class="text-xs font-bold text-zinc-200">فصل ${i}</span>
-                        <span class="text-[9px] text-zinc-500 italic">نام چپتر به فارسی</span>
-                    </div>
-                    <i data-lucide="play-circle" class="w-4 h-4 text-zinc-600"></i>
-                `;
-                list.appendChild(item);
+    /*****************************************************************
+     * Observers (shared)
+     *****************************************************************/
+    let lazyObserver = null;   // for image lazy load
+    let pageObserver = null;   // for current page detection
+
+    function createObservers(){
+      // shared lazy observer
+      lazyObserver = new IntersectionObserver((entries)=>{
+        entries.forEach(entry=>{
+          if(entry.isIntersecting){
+            const img = entry.target;
+            if(img.dataset && img.dataset.src){
+              img.src = img.dataset.src;
+              img.onload = ()=> img.style.opacity = '1';
+              img.onerror = ()=> {
+                img.style.opacity = '1';
+                img.alt = 'Failed to load';
+                img.dataset.failed = '1';
+                img.src = 'data:image/svg+xml;utf8,' + encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="600" height="900"><rect width="100%" height="100%" fill="#111"/><text x="50%" y="50%" fill="#999" font-size="20" text-anchor="middle">تصویر بارگذاری نشد</text></svg>`);
+              };
             }
-            lucide.createIcons();
+            lazyObserver.unobserve(img);
+          }
+        });
+      }, { root: view, rootMargin: LAZY_ROOT_MARGIN, threshold: 0.01 });
+
+      // page detection observer (works for both vertical and horizontal)
+      pageObserver = new IntersectionObserver((entries)=>{
+        entries.forEach(entry=>{
+          // consider this page current if intersectionRatio > threshold
+          if(entry.intersectionRatio >= PAGE_VISIBLE_THRESHOLD){
+            const frame = entry.target;
+            const idx = Array.prototype.indexOf.call(render.children, frame);
+            const pageIndex = Math.max(0, Math.min((IMAGES_PER_CHAPTER-1), idx));
+            updateCurrentPage(pageIndex+1);
+          }
+        });
+      }, { root: view, threshold: PAGE_VISIBLE_THRESHOLD });
+    }
+
+    function disconnectObservers(){
+      if(lazyObserver){ lazyObserver.disconnect(); lazyObserver = null; }
+      if(pageObserver){ pageObserver.disconnect(); pageObserver = null; }
+    }
+
+    /*****************************************************************
+     * Auto-scroll manager (only active when requested)
+     *****************************************************************/
+    let rafId = null;
+    function startAuto(){
+      if(rafId) return;
+      // respect reduced motion
+      if(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+      function step(){
+        if(!state.auto || state.mode !== 'webtoon'){
+          stopAuto(); return;
         }
+        // scroll by small delta that's framerate-independent
+        const delta = Math.max(1, state.speed / 8);
+        view.scrollBy({ top: delta, left: 0 });
+        rafId = requestAnimationFrame(step);
+      }
+      rafId = requestAnimationFrame(step);
+      updateAutoUI(true);
+    }
+    function stopAuto(){
+      if(rafId){ cancelAnimationFrame(rafId); rafId = null; }
+      updateAutoUI(false);
+    }
+    function updateAutoUI(active){
+      const btn = document.getElementById('btn-auto');
+      btn.classList.toggle('text-cyan-400', active);
+      btn.setAttribute('aria-pressed', String(active));
+      btn.innerHTML = active ? '<i data-lucide="pause"></i>' : '<i data-lucide="play"></i>';
+      lucide.createIcons();
+    }
 
-        function setupScrollListener() {
-            vport.addEventListener('scroll', () => {
-                const pos = vport.scrollTop;
-                const total = vport.scrollHeight - vport.clientHeight;
-                const p = (pos / total) * 100;
-                progress.style.width = p + '%';
+    /*****************************************************************
+     * Renderer: pages + chapters
+     *****************************************************************/
+    function buildImageSrcList(chapterIndex){
+      // Simple deterministic demo images (picsum) — replace with real API later.
+      // keep consistent ids per chapter for caching predictability
+      const base = 60 + chapterIndex*5;
+      return Array.from({length: IMAGES_PER_CHAPTER}, (_,i)=>`https://picsum.photos/id/${(base + i) * 3}/1200/1800`);
+    }
 
-                // آپدیت شماره صفحه
-                const frames = document.querySelectorAll('.page-wrapper');
-                frames.forEach((f, i) => {
-                    const rect = f.getBoundingClientRect();
-                    if(rect.top < window.innerHeight/2 && rect.bottom > window.innerHeight/2) {
-                        state.current = i + 1;
-                        document.getElementById('current-page').innerText = String(state.current).padStart(2, '0');
-                    }
-                });
-            });
-        }
+    function clearRender(){
+      // disconnect old observers to avoid leaks
+      if(lazyObserver || pageObserver) disconnectObservers();
+      render.innerHTML = '';
+      // recreate observers fresh to re-observe new nodes
+      createObservers();
+    }
 
-        function updateWidth(val) {
-            state.width = val;
-            document.getElementById('width-val').innerText = val + 'px';
-            document.querySelectorAll('.page-wrapper').forEach(p => p.style.maxWidth = val + 'px');
-        }
+    function createImageFrame(src, idx){
+      const frame = document.createElement('div');
+      frame.className = 'page-frame';
+      if(state.mode === 'webtoon') frame.style.maxWidth = state.width + 'px';
+      const img = document.createElement('img');
+      img.className = 'manga-img q-' + state.quality;
+      img.dataset.src = src;
+      img.alt = `صفحه ${idx+1}`;
+      img.setAttribute('draggable','false');
+      // fast load for first two
+      if(idx < 2){
+        img.src = src;
+        img.onload = ()=> img.style.opacity = '1';
+        img.onerror = ()=>{ img.dataset.failed='1'; img.style.opacity='1'; };
+      }else{
+        img.src = 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7';
+        if(lazyObserver) lazyObserver.observe(img);
+      }
+      frame.appendChild(img);
+      // observe this page for page-detection
+      if(pageObserver) pageObserver.observe(frame);
+      return frame;
+    }
 
-        function updateScrollSpeed(val) {
-            state.scrollSpeed = val;
-            document.getElementById('scroll-val').innerText = val + 'x';
-        }
+    function loadPages(){
+      clearRender();
+      const imgs = buildImageSrcList(state.currentChapter);
+      imgs.forEach((src,i)=> render.appendChild(createImageFrame(src,i)));
+      pTotalEl.innerText = String(imgs.length).padStart(2,'0');
+      // update p-curr baseline
+      updateCurrentPage(1);
+    }
 
-        function toggleAutoScroll() {
-            state.autoScroll = !state.autoScroll;
-            const btn = document.getElementById('autoscroll-btn');
-            if(state.autoScroll) {
-                btn.classList.add('text-cyan-400');
-                btn.querySelector('i').setAttribute('data-lucide', 'pause');
-                autoScrollAction();
-            } else {
-                btn.classList.remove('text-cyan-400');
-                btn.querySelector('i').setAttribute('data-lucide', 'play');
-            }
-            lucide.createIcons();
-        }
+    /*****************************************************************
+     * Chapters UI
+     *****************************************************************/
+    function loadChapters(){
+      const list = document.getElementById('ch-list');
+      list.innerHTML = '';
+      for(let i=1;i<=TOTAL_CHAPTERS;i++){
+        const item = document.createElement('div');
+        const isCurr = (i === state.currentChapter);
+        item.className = `p-4 rounded-xl cursor-pointer flex justify-between items-center transition-all ${isCurr ? 'current-ch' : 'hover:bg-white/10 bg-white/5'}`;
+        item.setAttribute('role','button');
+        item.setAttribute('tabindex','0');
+        item.innerHTML = `
+          <div class="flex flex-col">
+            <span class="text-xs font-black ${isCurr ? 'text-cyan-400' : 'text-zinc-300'}">قسمت ${i}</span>
+            <span class="text-[9px] text-zinc-600">انتشار در ۲۴ ساعت گذشته</span>
+          </div>
+          ${isCurr ? '<i data-lucide="eye" class="w-4 h-4 text-cyan-400"></i>' : '<i data-lucide="lock" class="w-3 h-3 text-zinc-800"></i>'}
+        `;
+        item.addEventListener('click', ()=> {
+          state.currentChapter = i;
+          Storage.save(state);
+          loadChapters();
+          closeAll();
+          loadPages();
+          // scroll reset
+          view.scrollTo({top:0,left:0,behavior:'auto'});
+        });
+        item.addEventListener('keydown', (e)=>{ if(e.key === 'Enter' || e.key === ' ') item.click(); });
+        list.appendChild(item);
+      }
+      lucide.createIcons();
+    }
 
-        function autoScrollAction() {
-            if(!state.autoScroll) return;
-            vport.scrollBy(0, 1 * (state.scrollSpeed / 2));
-            requestAnimationFrame(autoScrollAction);
-        }
+    /*****************************************************************
+     * UI helpers
+     *****************************************************************/
+    function updateCurrentPage(n){
+      pCurrEl.innerText = String(n).padStart(2,'0');
+      // update progress bar
+      try{
+        const isWeb = state.mode === 'webtoon';
+        const s = isWeb ? view.scrollTop : view.scrollLeft;
+        const m = isWeb ? Math.max(1, view.scrollHeight - view.clientHeight) : Math.max(1, view.scrollWidth - view.clientWidth);
+        const percent = Math.min(100, Math.max(0, (s/m*100)));
+        progressEl.style.width = percent + '%';
+      }catch(e){}
+    }
 
-        function setFilter(f) {
-            render.style.filter = f;
-            document.querySelectorAll('.active-filter').forEach(b => b.classList.remove('active-filter', 'bg-cyan-500', 'text-black'));
-            event.target.classList.add('active-filter', 'bg-cyan-500', 'text-black');
-        }
+    function applySettingsToUI(applyImages = true){
+      // mode buttons
+      document.getElementById('m-web').classList.toggle('active-glow', state.mode === 'webtoon');
+      document.getElementById('m-book').classList.toggle('active-glow', state.mode === 'book');
+      // width show
+      document.getElementById('v-width').innerText = state.width + 'px';
+      document.getElementById('width-slider').value = state.width;
+      // speed
+      document.getElementById('v-speed').innerText = state.speed;
+      document.getElementById('speed-slider').value = state.speed;
+      // quality
+      document.querySelectorAll('.q-btn').forEach(btn=>{
+        btn.classList.toggle('active-glow', btn.dataset.q === state.quality);
+      });
+      // filter highlights
+      document.querySelectorAll('.f-btn').forEach(btn=>{
+        const f = btn.dataset.f;
+        const is = (state.filter === 'none' && f === 'none') ||
+                   (state.filter === 'sepia' && f === 'sepia') ||
+                   (state.filter === 'bw' && f === 'bw') ||
+                   (state.filter === 'dark' && f === 'dark');
+        btn.classList.toggle('active-glow', is);
+      });
+      // apply filter to render
+      switch(state.filter){
+        case 'sepia': render.style.filter = 'sepia(.4) contrast(.95) brightness(.96)'; break;
+        case 'bw': render.style.filter = 'grayscale(1) contrast(1.05)'; break;
+        case 'dark': render.style.filter = 'contrast(1.2) saturate(.8) brightness(.85)'; break;
+        default: render.style.filter = 'none';
+      }
+      // apply quality class to existing images
+      if(applyImages){
+        document.querySelectorAll('.manga-img').forEach(img=>{
+          img.classList.remove('q-std','q-hd','q-uhd');
+          img.classList.add('q-' + state.quality);
+        });
+      }
+      // disable width control in book mode
+      const widthCtrl = document.getElementById('width-ctrl');
+      if(state.mode === 'book'){ widthCtrl.style.opacity = '.3'; widthCtrl.style.pointerEvents = 'none'; }
+      else { widthCtrl.style.opacity = '1'; widthCtrl.style.pointerEvents = 'auto'; }
+      // auto
+      if(state.auto) startAuto(); else stopAuto();
+    }
 
-        function toggleSidebar(id) {
-            const el = document.getElementById(`side-${id}`);
-            el.classList.toggle('active');
-        }
+    /*****************************************************************
+     * Interaction bindings
+     *****************************************************************/
+    function bindUI(){
+      // icon init
+      lucide.createIcons();
 
-        function toggleHUD() {
-            state.hud = !state.hud;
-            document.getElementById('ui-top').classList.toggle('hud-hidden');
-            document.getElementById('ui-bottom').classList.toggle('hud-hidden');
-        }
+      // chapters toggle
+      document.getElementById('btn-chapters').addEventListener('click', ()=>{
+        toggleSide('chapters');
+      });
+      document.getElementById('close-ch').addEventListener('click', closeAll);
 
-        function scrollToTop() {
-            vport.scrollTo({top: 0, behavior: 'smooth'});
-        }
+      // settings toggle
+      document.getElementById('btn-settings').addEventListener('click', ()=> toggleSide('settings'));
+      document.getElementById('close-settings').addEventListener('click', closeAll);
 
-        window.onload = init;
-    </script>
+      // prev/next chapter
+      document.getElementById('prev-ch').addEventListener('click', ()=> changeChapter(-1));
+      document.getElementById('next-ch').addEventListener('click', ()=> changeChapter(1));
+
+      // top
+      document.getElementById('btn-top').addEventListener('click', ()=> view.scrollTo({top:0,left:0,behavior:'smooth'}));
+
+      // auto toggle
+      document.getElementById('btn-auto').addEventListener('click', ()=> {
+        state.auto = !state.auto;
+        Storage.save(state);
+        if(state.auto) startAuto(); else stopAuto();
+      });
+
+      // mode buttons
+      document.getElementById('m-web').addEventListener('click', ()=> setMode('webtoon'));
+      document.getElementById('m-book').addEventListener('click', ()=> setMode('book'));
+
+      // width & speed sliders
+      document.getElementById('width-slider').addEventListener('input', e=>{
+        state.width = Number(e.target.value);
+        document.documentElement.style.setProperty('--manga-w', state.width + 'px');
+        document.getElementById('v-width').innerText = state.width + 'px';
+        Storage.save(state);
+        // apply to existing frames
+        document.querySelectorAll('.page-frame').forEach(f=> { if(state.mode === 'webtoon') f.style.maxWidth = state.width + 'px'; });
+      });
+      document.getElementById('speed-slider').addEventListener('input', e=>{
+        state.speed = Number(e.target.value);
+        document.getElementById('v-speed').innerText = state.speed;
+        Storage.save(state);
+      });
+
+      // quality buttons
+      document.querySelectorAll('.q-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          state.quality = btn.dataset.q;
+          Storage.save(state);
+          applySettingsToUI(true);
+        });
+      });
+
+      // filter buttons
+      document.querySelectorAll('.f-btn').forEach(btn=>{
+        btn.addEventListener('click', ()=>{
+          const f = btn.dataset.f;
+          // mapping to internal token
+          if(f === 'none') state.filter = 'none';
+          else if(f === 'sepia') state.filter = 'sepia';
+          else if(f === 'bw') state.filter = 'bw';
+          else state.filter = 'dark';
+          Storage.save(state);
+          applySettingsToUI(false);
+        });
+      });
+
+      // search debounce
+      let searchT = 0;
+      const searchInput = document.getElementById('ch-search');
+      searchInput.addEventListener('input', (e)=>{
+        clearTimeout(searchT);
+        const v = e.target.value.trim();
+        searchT = setTimeout(()=> {
+          document.querySelectorAll('#ch-list > div').forEach(el=>{
+            el.style.display = el.innerText.includes(v) ? 'flex' : 'none';
+          });
+        }, 150);
+      });
+
+      // hide/show HUD on body click (but ignore clicks inside glass)
+      document.body.addEventListener('click', (ev)=>{
+        if(ev.target.closest('.glass') || ev.target.closest('.sidebar') || ev.target.closest('.overlay')) return;
+        const top = document.getElementById('ui-top');
+        const bot = document.getElementById('ui-bottom');
+        const hidden = top.classList.contains('hud-hidden');
+        top.classList.toggle('hud-hidden', !hidden);
+        bot.classList.toggle('hud-hidden', !hidden);
+      });
+
+      // keyboard shortcuts (basic & accessible)
+      document.addEventListener('keydown', (e)=>{
+        if(e.key === 'ArrowLeft') changeChapter(-1);
+        if(e.key === 'ArrowRight') changeChapter(1);
+        if(e.key === ' ') { e.preventDefault(); state.auto = !state.auto; Storage.save(state); if(state.auto) startAuto(); else stopAuto(); }
+        if(e.key === 'Escape') closeAll();
+      });
+
+      // scroll progress update
+      view.addEventListener('scroll', ()=>{
+        // clamp and safe progress calc
+        const isWeb = state.mode === 'webtoon';
+        const s = isWeb ? view.scrollTop : view.scrollLeft;
+        const m = isWeb ? Math.max(1, view.scrollHeight - view.clientHeight) : Math.max(1, view.scrollWidth - view.clientWidth);
+        const percent = Math.min(100, Math.max(0, (s/m*100)));
+        progressEl.style.width = percent + '%';
+      });
+
+      // overlay click closes
+      overlay.addEventListener('click', closeAll);
+    }
+
+    /*****************************************************************
+     * Mode / Chapter helpers
+     *****************************************************************/
+    function setMode(m){
+      state.mode = m;
+      Storage.save(state);
+      view.classList.toggle('book-mode', m === 'book');
+      // update CSS var for width usage
+      if(m === 'book') document.documentElement.style.setProperty('--manga-w', '100vw');
+      else document.documentElement.style.setProperty('--manga-w', state.width + 'px');
+      // reload pages so layout and observers rewire
+      loadPages();
+      applySettingsToUI(true);
+    }
+
+    function changeChapter(delta){
+      state.currentChapter = Math.max(1, Math.min(TOTAL_CHAPTERS, state.currentChapter + delta));
+      Storage.save(state);
+      loadChapters();
+      loadPages();
+      view.scrollTo({top:0,left:0,behavior:'auto'});
+    }
+
+    function toggleSide(id){
+      closeAll();
+      if(id === 'chapters'){ sideCh.classList.add('active'); sideCh.setAttribute('aria-hidden','false'); overlay.classList.add('active'); }
+      if(id === 'settings'){ sideSettings.classList.add('active'); sideSettings.setAttribute('aria-hidden','false'); overlay.classList.add('active'); }
+    }
+    function closeAll(){
+      document.querySelectorAll('.sidebar').forEach(s=> { s.classList.remove('active'); s.setAttribute('aria-hidden','true'); });
+      overlay.classList.remove('active');
+    }
+
+    /*****************************************************************
+     * Lifecycle
+     *****************************************************************/
+    function init(){
+      createObservers();
+      bindUI();
+      loadChapters();
+      loadPages();
+      applySettingsToUI(true);
+      // set initial classes / attributes
+      view.classList.toggle('book-mode', state.mode === 'book');
+      document.documentElement.style.setProperty('--manga-w', state.width + 'px');
+      // ensure listeners for icon refresh
+      lucide.createIcons();
+      // if auto was on, start it (will respect reduced-motion)
+      if(state.auto) startAuto();
+    }
+
+    // Start
+    window.addEventListener('load', init);
+    window.addEventListener('beforeunload', ()=> { disconnectObservers(); Storage.save(state); });
+    // expose a debugging safe handle (but not in global mutable vars)
+    window._APEX = { getState: ()=> Object.assign({},state) };
+
+  })();
+  </script>
 </body>
 </html>

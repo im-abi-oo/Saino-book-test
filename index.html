@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Manga Ultra Pro | Apex Engine v9.0</title>
+    <title>Manga Ultra Pro | Apex Engine v11.0</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazir-font@v30.1.0/dist/font-face.css" rel="stylesheet"/>
     <script src="https://unpkg.com/lucide@latest"></script>
@@ -11,10 +11,9 @@
         :root {
             --accent: #d946ef;
             --accent-glow: rgba(217, 70, 239, 0.4);
-            --bg-base: #020203;
-            --panel-bg: rgba(10, 10, 12, 0.98);
+            --bg-base: #040405;
+            --panel-bg: rgba(10, 10, 14, 0.98);
             --manga-width: 900px;
-            --gpu-accel: translateZ(0);
         }
 
         body {
@@ -23,18 +22,27 @@
             color: #f4f4f5;
             margin: 0;
             overflow: hidden;
-            -webkit-font-smoothing: antialiased;
+            user-select: none;
+            -webkit-user-select: none;
         }
 
-        /* --- Engine Optimization --- */
+        /* Modern Scrollbars */
+        .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { 
+            background: rgba(255, 255, 255, 0.1); 
+            border-radius: 10px; 
+        }
+        .custom-scroll::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+        /* Core Structure */
         #reader-container {
             width: 100vw;
             height: 100vh;
             overflow-y: auto;
             overflow-x: hidden;
             scroll-behavior: smooth;
-            -webkit-overflow-scrolling: touch;
-            transform: var(--gpu-accel);
+            background: #000;
         }
 
         #reader-core {
@@ -44,11 +52,9 @@
             margin: 0 auto;
             width: 100%;
             max-width: var(--manga-width);
-            transition: max-width 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-            will-change: max-width;
+            transition: max-width 0.4s ease;
         }
 
-        /* Mode: Horizontal */
         .mode-horizontal #reader-container {
             display: flex;
             overflow-x: auto;
@@ -59,7 +65,6 @@
 
         .mode-horizontal #reader-core {
             flex-direction: row-reverse;
-            margin: 0;
             max-width: none !important;
             height: 100%;
         }
@@ -67,11 +72,10 @@
         .page-wrapper {
             width: 100%;
             position: relative;
-            background: #000;
-            min-height: 400px;
+            min-height: 50vh;
             display: flex;
             justify-content: center;
-            border-bottom: 2px solid #0a0a0a;
+            border-bottom: 4px solid #000;
         }
 
         .mode-horizontal .page-wrapper {
@@ -84,9 +88,10 @@
         .manga-page {
             width: 100%;
             height: auto;
+            object-fit: contain;
             opacity: 0;
-            transition: opacity 0.5s ease, filter 0.3s ease;
-            transform: var(--gpu-accel);
+            transition: opacity 0.5s ease;
+            pointer-events: none; /* Security: prevent right click directly on image */
         }
 
         .manga-page.loaded { opacity: 1; }
@@ -94,458 +99,324 @@
         /* UI Styling */
         .glass {
             background: var(--panel-bg);
-            backdrop-filter: blur(40px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
         }
 
-        /* Luxury Settings UI */
         .setting-card {
-            @apply mb-5 p-6 rounded-[2.5rem] bg-white/[0.03] border border-white/[0.05] transition-all duration-300 relative overflow-hidden;
+            @apply mb-4 p-5 rounded-[2rem] bg-white/[0.03] border border-white/[0.05] transition-all;
         }
 
-        .setting-card.is-active {
-            @apply bg-fuchsia-600/20 border-fuchsia-500 shadow-[0_0_30px_rgba(217,70,239,0.15)];
+        .setting-card.active {
+            @apply bg-fuchsia-600/10 border-fuchsia-500/50 shadow-[0_0_20px_rgba(217,70,239,0.1)];
         }
 
-        .setting-card.is-active::after {
-            content: '';
-            position: absolute;
-            top: 0; right: 0; width: 4px; height: 100%;
-            @apply bg-fuchsia-500;
-        }
-
-        /* Custom Modern Sliders */
+        /* Modern Sliders */
         input[type="range"] {
-            @apply w-full h-1.5 bg-zinc-800 rounded-full appearance-none cursor-pointer accent-fuchsia-500 transition-all;
+            -webkit-appearance: none;
+            @apply w-full h-1.5 bg-zinc-800 rounded-full outline-none mt-4;
         }
-
         input[type="range"]::-webkit-slider-thumb {
-            @apply appearance-none w-7 h-7 bg-white rounded-full border-4 border-fuchsia-600 shadow-[0_0_15px_rgba(217,70,239,0.5)] transition-transform active:scale-110;
+            -webkit-appearance: none;
+            @apply w-6 h-6 bg-white rounded-full border-4 border-fuchsia-600 shadow-lg cursor-pointer transition-transform;
+        }
+        input[type="range"]:active::-webkit-slider-thumb { transform: scale(1.2); }
+
+        /* Quality Buttons */
+        .q-btn { @apply flex-1 py-3 rounded-2xl bg-zinc-900 border border-white/5 text-[10px] font-black transition-all text-zinc-500; }
+        .q-btn.active { @apply bg-white text-black border-white shadow-xl scale-105; }
+
+        /* Chapter List Styling */
+        .ch-card {
+            @apply h-16 rounded-2xl border border-white/5 bg-white/[0.03] flex items-center justify-center text-sm font-black transition-all;
+        }
+        .ch-card.active {
+            @apply bg-fuchsia-600 border-fuchsia-400 text-white shadow-lg shadow-fuchsia-600/30 ring-4 ring-fuchsia-600/20;
+            animation: pulse-active 2s infinite;
         }
 
-        /* Animations */
-        .ui-element { transition: transform 0.5s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.4s ease; }
-        .hidden-ui-top { transform: translateY(-130%); opacity: 0; }
-        .hidden-ui-bottom { transform: translateY(130%); opacity: 0; }
-
-        .ch-item.current {
-            @apply bg-fuchsia-600 border-fuchsia-400 text-white shadow-[0_0_25px_rgba(217,70,239,0.4)];
-            position: relative;
-        }
-        .ch-item.current::before {
-            content: 'در حال مطالعه';
-            @apply absolute -top-2 right-2 px-2 py-0.5 bg-white text-fuchsia-600 text-[7px] font-black rounded-full;
+        @keyframes pulse-active {
+            0% { opacity: 1; }
+            50% { opacity: 0.8; }
+            100% { opacity: 1; }
         }
 
-        /* Status Pills */
-        .status-pill {
-            @apply px-3 py-1 rounded-lg text-[9px] font-black uppercase flex items-center gap-1.5;
-        }
-
-        /* Quality Modes */
-        .quality-btn { @apply flex-1 py-3 rounded-2xl bg-zinc-900 border border-white/5 text-[10px] font-bold transition-all; }
-        .quality-btn.active { @apply bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.2)]; }
+        .ui-hide-top { transform: translateY(-150%); opacity: 0; }
+        .ui-hide-bottom { transform: translateY(150%); opacity: 0; }
     </style>
 </head>
 <body class="bg-black">
 
     <!-- Top Navigation -->
-    <header id="top-nav" class="ui-element fixed top-5 inset-x-5 z-50">
+    <header id="top-nav" class="fixed top-5 inset-x-5 z-50 transition-all duration-500">
         <div class="max-w-5xl mx-auto glass rounded-[2.5rem] p-3.5 flex items-center justify-between shadow-2xl">
             <div class="flex items-center gap-4">
-                <button onclick="toggleSidebar('chapters')" class="w-14 h-14 rounded-[1.5rem] bg-fuchsia-600 text-white flex items-center justify-center shadow-lg hover:rotate-90 transition-all duration-500">
-                    <i data-lucide="layout-grid" class="w-7"></i>
+                <button onclick="toggleSidebar('chapters')" class="w-14 h-14 rounded-[1.5rem] bg-fuchsia-600 text-white flex items-center justify-center shadow-lg active:scale-90 transition-all">
+                    <i data-lucide="book-text" class="w-7"></i>
                 </button>
                 <div>
-                    <h1 class="text-sm font-black text-white leading-none">تک‌رو (Solo Leveling)</h1>
-                    <div class="flex items-center gap-2 mt-2">
-                        <span class="w-2 h-2 rounded-full bg-fuchsia-500 animate-pulse"></span>
-                        <p id="indicator" class="text-[10px] text-zinc-400 font-bold uppercase tracking-tighter">چپتر ۱۷۹ • صفحه ۱</p>
+                    <h1 class="text-sm font-black text-white">تک‌رو (Solo Leveling)</h1>
+                    <div class="flex items-center gap-2 mt-1">
+                        <span class="w-1.5 h-1.5 rounded-full bg-fuchsia-500"></span>
+                        <p id="indicator" class="text-[10px] text-zinc-500 font-bold">چپتر ۱۷۹ • صفحه ۱</p>
                     </div>
                 </div>
             </div>
             
-            <div class="flex items-center gap-3">
-                <div id="quick-status" class="flex gap-2"></div>
-                <button onclick="toggleSidebar('settings')" class="w-14 h-14 rounded-[1.5rem] bg-zinc-900 border border-white/5 flex items-center justify-center text-zinc-400 hover:text-white transition-all">
-                    <i data-lucide="sliders-horizontal" class="w-7"></i>
-                </button>
-            </div>
+            <button onclick="toggleSidebar('settings')" class="w-14 h-14 rounded-[1.5rem] bg-zinc-900 border border-white/5 flex items-center justify-center text-zinc-400">
+                <i data-lucide="settings-2" class="w-7"></i>
+            </button>
         </div>
     </header>
 
-    <!-- Reader Container -->
-    <main id="reader-container" onclick="handleUI(event)">
-        <div id="reader-core">
-            <!-- Pages injected here -->
-        </div>
+    <!-- Content -->
+    <main id="reader-container" class="custom-scroll" onclick="toggleUI()">
+        <div id="reader-core"></div>
     </main>
 
-    <!-- Navigation Hub -->
-    <nav id="bottom-nav" class="ui-element fixed bottom-8 inset-x-0 z-50 pointer-events-none">
-        <div class="max-w-md mx-auto glass rounded-full p-2.5 flex items-center justify-between pointer-events-auto shadow-2xl border-white/10">
-            <button onclick="navigate('prev')" class="w-14 h-14 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/5 transition-all">
-                <i data-lucide="chevron-right" class="w-8"></i>
+    <!-- Bottom Nav -->
+    <nav id="bottom-nav" class="fixed bottom-8 inset-x-0 z-50 transition-all duration-500 pointer-events-none">
+        <div class="max-w-xs mx-auto glass rounded-full p-2.5 flex items-center justify-between pointer-events-auto">
+            <button onclick="navigate('prev')" class="w-14 h-14 rounded-full flex items-center justify-center text-zinc-500 hover:text-white transition-all">
+                <i data-lucide="arrow-right-circle" class="w-8"></i>
             </button>
-            
-            <button onclick="scrollToTop()" class="w-14 h-14 rounded-full bg-fuchsia-600 text-white flex items-center justify-center shadow-lg shadow-fuchsia-600/30 hover:scale-110 transition-all">
+            <button onclick="scrollToTop()" class="w-14 h-14 rounded-full bg-white text-black flex items-center justify-center shadow-xl hover:scale-110 transition-all">
                 <i data-lucide="arrow-up" class="w-6"></i>
             </button>
-
-            <button onclick="navigate('next')" class="w-14 h-14 rounded-full flex items-center justify-center text-zinc-400 hover:text-white hover:bg-white/5 transition-all">
-                <i data-lucide="chevron-left" class="w-8"></i>
+            <button onclick="navigate('next')" class="w-14 h-14 rounded-full flex items-center justify-center text-zinc-500 hover:text-white transition-all">
+                <i data-lucide="arrow-left-circle" class="w-8"></i>
             </button>
         </div>
     </nav>
 
-    <!-- Sidebar: Settings -->
-    <aside id="side-settings" class="sidebar fixed inset-y-0 right-0 w-full md:w-[480px] glass z-[100] transform translate-x-full overflow-hidden flex flex-col hidden">
-        <div class="p-10 flex items-center justify-between border-b border-white/10">
-            <div>
-                <h2 class="text-2xl font-black text-white">تنظیمات پیشرفته</h2>
-                <p class="text-[10px] text-fuchsia-500 font-bold mt-1 uppercase">Engine Optimization v9.0</p>
+    <!-- Side: Chapters -->
+    <aside id="side-chapters" class="fixed inset-y-0 right-0 w-full md:w-[450px] glass z-[100] translate-x-full transition-transform duration-500 flex flex-col hidden">
+        <div class="p-8 border-b border-white/5 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <i data-lucide="list-video" class="text-fuchsia-500"></i>
+                <h2 class="text-xl font-black">لیست فصول</h2>
             </div>
-            <button onclick="closeSidebars()" class="w-12 h-12 rounded-2xl bg-white/5 text-zinc-400 hover:text-white"><i data-lucide="x"></i></button>
-        </div>
-
-        <div class="flex-grow overflow-y-auto p-8 space-y-4">
-            
-            <!-- Auto Scroll -->
-            <div class="setting-card" id="card-auto">
-                <div class="flex items-center justify-between mb-6">
-                    <div class="flex items-center gap-4">
-                        <div class="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-500 flex items-center justify-center"><i data-lucide="zap"></i></div>
-                        <div>
-                            <p class="text-sm font-black text-white">اسکرول خودکار</p>
-                            <p class="text-[10px] text-zinc-500">حرکت هوشمند تصاویر به پایین</p>
-                        </div>
-                    </div>
-                    <button onclick="toggleAuto()" id="btn-auto-toggle" class="px-5 py-2 rounded-full bg-zinc-800 text-[10px] font-black uppercase">خاموش</button>
-                </div>
-                <div class="space-y-4">
-                    <div class="flex justify-between text-[11px] font-bold">
-                        <span class="text-zinc-500">سرعت جابجایی</span>
-                        <span id="val-speed" class="text-amber-500">10</span>
-                    </div>
-                    <input type="range" min="1" max="150" value="10" oninput="updateSpeed(this.value)">
-                </div>
-            </div>
-
-            <!-- Resize -->
-            <div class="setting-card" id="card-width">
-                <div class="flex items-center gap-4 mb-6">
-                    <div class="w-12 h-12 rounded-2xl bg-fuchsia-500/10 text-fuchsia-500 flex items-center justify-center"><i data-lucide="expand"></i></div>
-                    <div>
-                        <p class="text-sm font-black text-white">بزرگنمایی تصاویر</p>
-                        <p class="text-[10px] text-zinc-500">تغییر عرض کلی محتوا (هوشمند)</p>
-                    </div>
-                </div>
-                <div class="space-y-4">
-                    <div class="flex justify-between text-[11px] font-bold">
-                        <span class="text-zinc-500">اندازه داینامیک</span>
-                        <span id="val-width" class="text-fuchsia-500">900px</span>
-                    </div>
-                    <input type="range" min="400" max="1800" value="900" oninput="updateWidth(this.value)">
-                </div>
-            </div>
-
-            <!-- Quality Modes -->
-            <div class="setting-card" id="card-quality">
-                <div class="flex items-center gap-4 mb-6">
-                    <div class="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-500 flex items-center justify-center"><i data-lucide="sparkles"></i></div>
-                    <div>
-                        <p class="text-sm font-black text-white">ارتقای کیفیت AI</p>
-                        <p class="text-[10px] text-zinc-500">۳ سطح پردازش تصویر برای جزئیات</p>
-                    </div>
-                </div>
-                <div class="flex gap-2">
-                    <button onclick="setQuality(0)" class="quality-btn q-0 active">Normal</button>
-                    <button onclick="setQuality(1)" class="quality-btn q-1">High</button>
-                    <button onclick="setQuality(2)" class="quality-btn q-2">Ultra</button>
-                </div>
-            </div>
-
-            <!-- Modes -->
-            <div class="grid grid-cols-2 gap-4">
-                <button onclick="setMode('vertical')" id="opt-v" class="setting-card !mb-0 flex flex-col items-center gap-4 active">
-                    <i data-lucide="layout" class="w-6"></i>
-                    <span class="text-[11px] font-black">وب‌تون (عمودی)</span>
-                </button>
-                <button onclick="setMode('horizontal')" id="opt-h" class="setting-card !mb-0 flex flex-col items-center gap-4">
-                    <i data-lucide="columns" class="w-6"></i>
-                    <span class="text-[11px] font-black">مانگا (کتابی)</span>
-                </button>
-            </div>
-
-            <!-- Eye Care -->
-            <button onclick="toggleSepia()" id="card-sepia" class="setting-card w-full flex items-center justify-between !mb-0">
-                <div class="flex items-center gap-4">
-                    <div class="w-10 h-10 rounded-xl bg-orange-500/10 text-orange-500 flex items-center justify-center"><i data-lucide="eye"></i></div>
-                    <span class="text-[11px] font-black">فیلتر محافظ چشم (Sepia)</span>
-                </div>
-                <div id="sepia-status" class="w-10 h-5 bg-zinc-800 rounded-full relative transition-all">
-                    <div class="w-4 h-4 bg-white rounded-full absolute top-0.5 right-0.5 transition-all"></div>
-                </div>
+            <button onclick="closeSidebar('chapters')" class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-zinc-400 hover:text-red-500">
+                <i data-lucide="x"></i>
             </button>
-
-            <button onclick="resetApp()" class="w-full mt-10 p-5 rounded-[2rem] border border-red-500/10 text-red-500 text-[11px] font-black hover:bg-red-500 hover:text-white transition-all">پاکسازی دیتای برنامه</button>
         </div>
+        <div id="ch-list" class="flex-grow overflow-y-auto p-6 grid grid-cols-4 gap-3 custom-scroll"></div>
     </aside>
 
-    <!-- Sidebar: Chapters -->
-    <aside id="side-chapters" class="sidebar fixed inset-y-0 right-0 w-full md:w-[480px] glass z-[100] transform translate-x-full flex flex-col hidden">
-        <div class="p-10 border-b border-white/10">
-            <h2 class="text-2xl font-black text-white">لیست فصول</h2>
-            <div class="mt-6 relative">
-                <i data-lucide="search" class="absolute right-5 top-5 w-5 text-zinc-500"></i>
-                <input type="text" oninput="filterCh(this.value)" placeholder="جستجوی شماره قسمت..." class="w-full bg-white/5 border border-white/10 rounded-[1.5rem] py-5 pr-14 pl-6 text-sm focus:border-fuchsia-600 outline-none transition-all">
+    <!-- Side: Settings -->
+    <aside id="side-settings" class="fixed inset-y-0 right-0 w-full md:w-[450px] glass z-[100] translate-x-full transition-transform duration-500 flex flex-col hidden">
+        <div class="p-8 border-b border-white/5 flex items-center justify-between">
+            <h2 class="text-xl font-black">تنظیمات رندر</h2>
+            <button onclick="closeSidebar('settings')" class="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-zinc-400">
+                <i data-lucide="x"></i>
+            </button>
+        </div>
+        <div class="p-6 space-y-4 overflow-y-auto custom-scroll">
+            
+            <div class="setting-card" id="card-quality">
+                <p class="text-[11px] font-black text-zinc-400 mb-4 flex items-center gap-2">
+                    <i data-lucide="cpu" class="w-4"></i> ارتقای کیفیت هوشمند
+                </p>
+                <div class="flex gap-2">
+                    <button onclick="setQuality(0)" class="q-btn" id="q0">Standard</button>
+                    <button onclick="setQuality(1)" class="q-btn" id="q1">High Pro</button>
+                    <button onclick="setQuality(2)" class="q-btn" id="q2">Ultra AI</button>
+                </div>
+            </div>
+
+            <div class="setting-card" id="card-width">
+                <div class="flex justify-between items-center text-[11px] font-black text-zinc-400">
+                    <span class="flex items-center gap-2"><i data-lucide="maximize" class="w-4"></i> ابعاد محتوا</span>
+                    <span id="val-width" class="text-fuchsia-500">900px</span>
+                </div>
+                <input type="range" min="400" max="1800" value="900" oninput="updateWidth(this.value)">
+            </div>
+
+            <div class="setting-card" id="card-auto">
+                <div class="flex justify-between items-center mb-2 text-[11px] font-black text-zinc-400">
+                    <span class="flex items-center gap-2"><i data-lucide="zap" class="w-4"></i> سرعت اسکرول</span>
+                    <button onclick="toggleAuto()" id="btn-auto" class="px-3 py-1 bg-zinc-800 rounded-lg">خاموش</button>
+                </div>
+                <input type="range" min="1" max="100" value="10" oninput="updateSpeed(this.value)">
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="setMode('vertical')" id="m-v" class="setting-card !mb-0 flex flex-col items-center gap-2">
+                    <i data-lucide="mouse-pointer-2" class="w-5"></i>
+                    <span class="text-[10px] font-black">عمودی</span>
+                </button>
+                <button onclick="setMode('horizontal')" id="m-h" class="setting-card !mb-0 flex flex-col items-center gap-2">
+                    <i data-lucide="move-horizontal" class="w-5"></i>
+                    <span class="text-[10px] font-black">افقی</span>
+                </button>
             </div>
         </div>
-        <div id="ch-grid" class="overflow-y-auto p-8 grid grid-cols-4 gap-4">
-            <!-- Dynamic Chapters -->
-        </div>
     </aside>
 
-    <div id="overlay" onclick="closeSidebars()" class="fixed inset-0 bg-black/90 backdrop-blur-md z-[90] hidden opacity-0 transition-opacity duration-500"></div>
+    <div id="overlay" onclick="closeAllSidebars()" class="fixed inset-0 bg-black/80 backdrop-blur-md z-[90] hidden transition-opacity duration-500 opacity-0"></div>
 
     <script>
-        const PAGE_COUNT = 20;
-        const CHAPTER_NOW = 179;
-        let isUI = true;
-        let scrollTask = null;
-
         let state = {
             mode: 'vertical',
             width: 900,
-            speed: 10,
             quality: 0,
-            sepia: false
+            speed: 10,
+            isAuto: false,
+            ui: true,
+            currentChapter: 179
         };
 
-        // --- Init ---
+        let autoScrollInterval = null;
+
         function init() {
-            loadState();
-            renderReader();
+            renderPages();
             renderChapters();
             applyState();
-            setupEvents();
+            setupSecurity();
             lucide.createIcons();
         }
 
-        function renderReader() {
-            const core = document.getElementById('reader-core');
-            core.innerHTML = '';
-            for(let i=1; i<=PAGE_COUNT; i++) {
+        function renderPages() {
+            const container = document.getElementById('reader-core');
+            container.innerHTML = '';
+            for(let i=1; i<=25; i++) {
                 const wrap = document.createElement('div');
                 wrap.className = 'page-wrapper';
                 wrap.id = `page-${i}`;
-                wrap.innerHTML = `
-                    <div class="absolute inset-0 flex items-center justify-center -z-10 opacity-10">
-                        <div class="w-14 h-14 border-[6px] border-white/5 border-t-fuchsia-600 rounded-full animate-spin"></div>
-                    </div>
-                    <img class="manga-page" data-src="https://picsum.photos/seed/manga-v9-${i}/1200/1800">
-                `;
-                core.appendChild(wrap);
+                wrap.innerHTML = `<img class="manga-page" data-src="https://picsum.photos/seed/v11-${i}/1200/1800">`;
+                container.appendChild(wrap);
             }
             setupObserver();
         }
 
         function renderChapters() {
-            const grid = document.getElementById('ch-grid');
-            grid.innerHTML = '';
-            for(let i=1; i<=200; i++) {
+            const list = document.getElementById('ch-list');
+            list.innerHTML = '';
+            for(let i=1; i<=185; i++) {
                 const btn = document.createElement('button');
-                btn.className = `ch-item h-16 rounded-3xl border border-white/5 bg-white/5 text-sm font-black transition-all hover:bg-white/10 ${i === CHAPTER_NOW ? 'current' : ''}`;
+                btn.className = `ch-card ${i === state.currentChapter ? 'active' : ''}`;
                 btn.innerText = i;
-                btn.dataset.id = i;
-                grid.appendChild(btn);
+                list.appendChild(btn);
             }
-        }
-
-        // --- State ---
-        function loadState() {
-            const saved = localStorage.getItem('apex_v9_db');
-            if(saved) state = {...state, ...JSON.parse(saved)};
-        }
-
-        function saveState() {
-            localStorage.setItem('apex_v9_db', JSON.stringify(state));
         }
 
         function applyState() {
-            setMode(state.mode, false);
-            updateWidth(state.width, false);
+            setMode(state.mode);
+            updateWidth(state.width);
+            setQuality(state.quality);
             updateSpeed(state.speed);
-            setQuality(state.quality, false);
-            if(state.sepia) { state.sepia = false; toggleSepia(false); }
-
-            document.querySelectorAll('input[type="range"]')[0].value = state.speed;
-            document.querySelectorAll('input[type="range"]')[1].value = state.width;
         }
 
-        // --- Core Logic ---
-        function setMode(m, save = true) {
+        // Action Functions
+        function setMode(m) {
             state.mode = m;
-            document.body.className = (m === 'horizontal') ? 'mode-horizontal' : '';
-            document.getElementById('opt-v').classList.toggle('is-active', m === 'vertical');
-            document.getElementById('opt-h').classList.toggle('is-active', m === 'horizontal');
-            
-            if(m === 'horizontal') document.getElementById('reader-container').scrollLeft = 0;
-            updateWidth(state.width, false);
-            if(save) saveState();
+            document.body.className = m === 'horizontal' ? 'mode-horizontal' : '';
+            document.getElementById('m-v').classList.toggle('active', m === 'vertical');
+            document.getElementById('m-h').classList.toggle('active', m === 'horizontal');
             setupObserver();
         }
 
-        function updateWidth(val, save = true) {
-            state.width = parseInt(val);
-            document.documentElement.style.setProperty('--manga-width', `${val}px`);
-            document.getElementById('val-width').innerText = val + 'px';
-            document.getElementById('card-width').classList.toggle('is-active', val > 1200);
-            if(save) saveState();
+        function updateWidth(w) {
+            state.width = w;
+            document.documentElement.style.setProperty('--manga-width', `${w}px`);
+            document.getElementById('val-width').innerText = `${w}px`;
+            document.getElementById('card-width').classList.toggle('active', w > 1000);
         }
 
-        function updateSpeed(val) {
-            state.speed = parseInt(val);
-            document.getElementById('val-speed').innerText = val;
-            if(scrollTask) startAutoScroll();
-            saveState();
+        function setQuality(lv) {
+            state.quality = lv;
+            const filters = ['none', 'contrast(1.05) saturate(1.1) sharp', 'contrast(1.15) saturate(1.2) brightness(1.1)'];
+            document.querySelectorAll('.q-btn').forEach((b, i) => b.classList.toggle('active', i === lv));
+            document.querySelectorAll('.manga-page').forEach(img => {
+                img.style.filter = filters[lv];
+                img.style.imageRendering = lv > 0 ? 'crisp-edges' : 'auto';
+            });
+            document.getElementById('card-quality').classList.toggle('active', lv > 0);
         }
 
         function toggleAuto() {
-            const btn = document.getElementById('btn-auto-toggle');
-            const card = document.getElementById('card-auto');
-            if(scrollTask) {
-                clearInterval(scrollTask);
-                scrollTask = null;
-                btn.innerText = "خاموش";
-                btn.className = "px-5 py-2 rounded-full bg-zinc-800 text-[10px] font-black uppercase";
-                card.classList.remove('is-active');
+            state.isAuto = !state.isAuto;
+            const btn = document.getElementById('btn-auto');
+            if(state.isAuto) {
+                btn.innerText = 'در حال حرکت';
+                btn.className = 'px-3 py-1 bg-fuchsia-600 text-white rounded-lg shadow-lg';
+                document.getElementById('card-auto').classList.add('active');
+                autoScrollInterval = setInterval(() => {
+                    const c = document.getElementById('reader-container');
+                    const step = state.speed / 10;
+                    if(state.mode === 'vertical') c.scrollTop += step;
+                    else c.scrollLeft -= step;
+                }, 16);
             } else {
-                btn.innerText = "فعال";
-                btn.className = "px-5 py-2 rounded-full bg-fuchsia-600 text-white text-[10px] font-black uppercase";
-                card.classList.add('is-active');
-                startAutoScroll();
-            }
-            refreshBadges();
-        }
-
-        function startAutoScroll() {
-            if(scrollTask) clearInterval(scrollTask);
-            scrollTask = setInterval(() => {
-                const c = document.getElementById('reader-container');
-                const p = state.speed / 12;
-                if(state.mode === 'vertical') c.scrollTop += p;
-                else c.scrollLeft -= p;
-            }, 10);
-        }
-
-        function setQuality(lv, save = true) {
-            state.quality = lv;
-            document.querySelectorAll('.quality-btn').forEach((b, i) => b.classList.toggle('active', i === lv));
-            document.getElementById('card-quality').classList.toggle('is-active', lv > 0);
-            
-            const filterMap = [
-                'none',
-                'contrast(1.05) saturate(1.1) brightness(1.05)',
-                'contrast(1.15) saturate(1.2) brightness(1.1) drop-shadow(0 0 5px rgba(0,0,0,0.5))'
-            ];
-            
-            document.querySelectorAll('.manga-page').forEach(img => {
-                img.style.filter = filterMap[lv];
-                img.style.imageRendering = lv > 0 ? 'crisp-edges' : 'auto';
-            });
-            if(save) saveState();
-            refreshBadges();
-        }
-
-        function toggleSepia(save = true) {
-            state.sepia = !state.sepia;
-            const card = document.getElementById('card-sepia');
-            const status = document.getElementById('sepia-status');
-            const dot = status.querySelector('div');
-            
-            card.classList.toggle('is-active', state.sepia);
-            status.className = state.sepia ? 'w-10 h-5 bg-white rounded-full relative transition-all' : 'w-10 h-5 bg-zinc-800 rounded-full relative transition-all';
-            dot.className = state.sepia ? 'w-4 h-4 bg-fuchsia-600 rounded-full absolute top-0.5 left-0.5 transition-all' : 'w-4 h-4 bg-white rounded-full absolute top-0.5 right-0.5 transition-all';
-
-            document.getElementById('reader-core').style.filter = state.sepia ? 'sepia(0.5) contrast(0.95)' : 'none';
-            if(save) saveState();
-        }
-
-        // --- UI & Helpers ---
-        function setupObserver() {
-            const container = document.getElementById('reader-container');
-            const options = { threshold: 0.1, root: state.mode === 'horizontal' ? container : null };
-            const io = new IntersectionObserver((entries) => {
-                entries.forEach(entry => {
-                    if(entry.isIntersecting) {
-                        const img = entry.target.querySelector('img');
-                        if(img && !img.src) {
-                            img.src = img.dataset.src;
-                            img.onload = () => img.classList.add('loaded');
-                        }
-                        document.getElementById('indicator').innerText = `چپتر ۱۷۹ • صفحه ${entry.target.id.split('-')[1]}`;
-                    }
-                });
-            }, options);
-            document.querySelectorAll('.page-wrapper').forEach(p => io.observe(p));
-        }
-
-        function handleUI(e) {
-            if(e.target.closest('.manga-page') || e.target.id === 'reader-container') {
-                isUI = !isUI;
-                document.getElementById('top-nav').classList.toggle('hidden-ui-top', !isUI);
-                document.getElementById('bottom-nav').classList.toggle('hidden-ui-bottom', !isUI);
+                btn.innerText = 'خاموش';
+                btn.className = 'px-3 py-1 bg-zinc-800 rounded-lg';
+                document.getElementById('card-auto').classList.remove('active');
+                clearInterval(autoScrollInterval);
             }
         }
 
-        function toggleSidebar(id) {
-            const p = document.getElementById(`side-${id}`);
-            const o = document.getElementById('overlay');
-            p.classList.remove('hidden');
-            o.classList.remove('hidden');
-            setTimeout(() => { p.classList.remove('translate-x-full'); o.classList.add('opacity-100'); }, 10);
-        }
+        function updateSpeed(s) { state.speed = s; }
 
-        function closeSidebars() {
-            document.querySelectorAll('.sidebar').forEach(s => s.classList.add('translate-x-full'));
-            const o = document.getElementById('overlay');
-            o.classList.remove('opacity-100');
-            setTimeout(() => { o.classList.add('hidden'); document.querySelectorAll('.sidebar').forEach(s => s.classList.add('hidden')); }, 400);
+        function toggleUI() {
+            state.ui = !state.ui;
+            document.getElementById('top-nav').classList.toggle('ui-hide-top', !state.ui);
+            document.getElementById('bottom-nav').classList.toggle('ui-hide-bottom', !state.ui);
         }
 
         function navigate(dir) {
             const c = document.getElementById('reader-container');
-            const step = (state.mode === 'vertical') ? window.innerHeight * 0.75 : window.innerWidth;
-            if(state.mode === 'vertical') c.scrollBy({ top: dir === 'next' ? step : -step, behavior: 'smooth' });
-            else c.scrollBy({ left: dir === 'next' ? -step : step, behavior: 'smooth' });
+            const step = state.mode === 'vertical' ? window.innerHeight * 0.8 : window.innerWidth;
+            if(state.mode === 'vertical') c.scrollBy({top: dir === 'next' ? step : -step, behavior: 'smooth'});
+            else c.scrollBy({left: dir === 'next' ? -step : step, behavior: 'smooth'});
         }
 
-        function refreshBadges() {
-            const container = document.getElementById('quick-status');
-            container.innerHTML = '';
-            if(scrollTask) container.innerHTML += `<div class="status-pill bg-amber-500 text-black">AS</div>`;
-            if(state.quality > 0) container.innerHTML += `<div class="status-pill bg-blue-600 text-white">AI-${state.quality}</div>`;
+        function setupObserver() {
+            const container = document.getElementById('reader-container');
+            const options = { threshold: 0.1, root: state.mode === 'horizontal' ? container : null };
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(e => {
+                    if(e.isIntersecting) {
+                        const img = e.target.querySelector('img');
+                        if(img && !img.src) {
+                            img.src = img.dataset.src;
+                            img.onload = () => img.classList.add('loaded');
+                        }
+                        document.getElementById('indicator').innerText = `چپتر ۱۷۹ • صفحه ${e.target.id.split('-')[1]}`;
+                    }
+                });
+            }, options);
+            document.querySelectorAll('.page-wrapper').forEach(p => observer.observe(p));
         }
 
-        function filterCh(val) {
-            document.querySelectorAll('.ch-item').forEach(b => {
-                b.style.display = b.dataset.id.includes(val) ? 'flex' : 'none';
+        // Security Layer
+        function setupSecurity() {
+            document.addEventListener('contextmenu', e => e.preventDefault());
+            document.addEventListener('keydown', e => {
+                if(e.ctrlKey && (e.key === 's' || e.key === 'u' || e.key === 'p' || e.key === 'i')) e.preventDefault();
+                if(e.key === 'F12') e.preventDefault();
             });
+            document.addEventListener('dragstart', e => { if(e.target.tagName === 'IMG') e.preventDefault(); });
         }
 
-        function scrollToTop() {
-            document.getElementById('reader-container').scrollTo({top: 0, behavior: 'smooth'});
+        // UI Handlers
+        function toggleSidebar(id) {
+            const s = document.getElementById(`side-${id}`);
+            const o = document.getElementById('overlay');
+            s.classList.remove('hidden');
+            o.classList.remove('hidden');
+            setTimeout(() => { s.classList.remove('translate-x-full'); o.classList.add('opacity-100'); }, 10);
         }
 
-        function setupEvents() {
-            window.addEventListener('keydown', (e) => {
-                if(e.key === 'ArrowLeft' || e.key === 'ArrowDown') navigate('next');
-                if(e.key === 'ArrowRight' || e.key === 'ArrowUp') navigate('prev');
-            });
+        function closeSidebar(id) {
+            const s = document.getElementById(`side-${id}`);
+            const o = document.getElementById('overlay');
+            s.classList.add('translate-x-full');
+            o.classList.remove('opacity-100');
+            setTimeout(() => { s.classList.add('hidden'); o.classList.add('hidden'); }, 500);
         }
 
-        function resetApp() { localStorage.removeItem('apex_v9_db'); location.reload(); }
+        function closeAllSidebars() { closeSidebar('settings'); closeSidebar('chapters'); }
+        function scrollToTop() { document.getElementById('reader-container').scrollTo({top: 0, behavior: 'smooth'}); }
 
         window.onload = init;
     </script>
